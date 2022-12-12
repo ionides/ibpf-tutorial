@@ -1,0 +1,855 @@
+
+\documentclass[12pt]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{enumerate}
+\usepackage{natbib}
+\usepackage{soul}
+\usepackage{xcolor}
+\usepackage{url} 
+\newcommand\eic[1]{{\textcolor{orange}{#1}}}
+\newcommand\pnc[1]{{\textcolor{blue}{#1}}}
+\usepackage{fullpage}
+\bibliographystyle{apalike}
+
+%% code macros
+\newcommand\proglang[1]{\textsf{#1}} 
+\newcommand\code[1]{\texttt{#1}}
+\newcommand{\pkg}[1]{{\fontseries{b}\selectfont #1}}
+\newcommand\slot[1]{\code{#1}}
+\newcommand\class[1]{class `\code{#1}'}
+\newcommand\Class[1]{Class `\code{#1}'}
+
+%% basic POMP definitions
+\newcommand\Xspace{{\mathbb X}}
+\newcommand\Yspace{{\mathbb Y}}
+%\newcommand\Thetaspace{{\Theta}}
+%\newcommand\vecTheta{\vec{\Theta}}
+\newcommand\vecTheta{\Theta}
+\newcommand\Thetaspace{\R^{\Thetadim}}
+\newcommand\hatTheta{\widehat{\Theta}}
+\newcommand\Xdim{{\mathrm{dim}}(\Xspace)}
+\renewcommand\Xdim{D_X}
+\renewcommand\Xspace{{\R^{\Xdim}}}
+\newcommand\Ydim{{\mathrm{dim}}(\Yspace)}
+\renewcommand\Yspace{\R}
+%\newcommand\Thetadim{{\mathrm{dim}}(\Thetaspace)}
+\newcommand\Thetadim{D_\theta}
+\newcommand\thetadim{d_\theta}
+%\newcommand\vectheta{\vec{\theta}}
+\newcommand\vectheta{\theta}
+\newcommand\timeSet{{\mathbb T}}
+\newcommand\data[1]{#1^*}
+
+\newcommand\unitSpecific{\hspace{0.1mm}\mathrm{us}}
+\newcommand\shared{\hspace{0.15mm}\mathrm{sh}}
+\newcommand\RP{\hspace{0.15mm}\mathrm{RP}}
+\newcommand\IVP{\hspace{0.15mm}\mathrm{IVP}}
+
+%% for bagged filters
+\newcommand\ABF{ABF}
+\newcommand\ABFIR{ABF-IR}
+\newcommand\UBF{UBF}
+\newcommand\rep{i}
+\newcommand\altRep{\tilde\rep}
+\newcommand\Rep{\mathcal{I}}
+
+
+%% for particle filters
+\newcommand\unit{u}
+\newcommand\altUnit{\tilde{u}}
+\newcommand\Unit{U}
+\usepackage[mathscr]{euscript}
+\renewcommand\time{n}
+\renewcommand\vec[1]{\boldsymbol{#1}}
+\newcommand\altTime{\tilde{n}}
+\newcommand\Time{N}
+\newcommand\Np{J}
+\newcommand\np{j}
+\newcommand\altNp{q}
+\newcommand\altAltNp{\tilde{j}}
+\newcommand\resampleIndex{r}
+
+%% customized math macros
+%\newcommand\prob[1]{\mathbb{P}\left[{#1}\right]}
+\newcommand\prob{\mathbb{P}}
+\newcommand\dd[1]{\mathrm{d}{#1}}
+\newcommand\given{{\,\vert\,}}
+\newcommand\equals{{{\,}={\,}}}
+\newcommand\myequals{\hspace{0.5mm}{=}\hspace{0.5mm}}
+\newcommand\myto{{\;:\;}}
+\newcommand\seq[2]{{#1}\!:\!{#2}}
+\newcommand\mydot{{\,\cdot\,}}
+\newcommand\cp[2]{N_{\mathrm{#1}\mathrm{#2}}}
+%\newcommand\BirthDeath{\raisebox{-0.3ex}{\scalebox{1.5}{$\cdot$}}}
+%\newcommand\dlta[1]{\Delta{#1}}
+\newcommand\giventh{{\hspace{0.5mm};\hspace{0.5mm}}}
+\newcommand\normal{{\mathrm{Normal}}}
+\newcommand\argequals{{\,=\,}}
+\newcommand\lags{c}
+\newcommand\maxlag{\overline{c}}
+\newcommand\nlfList{C}
+\newcommand\bigO{\mathcal{O}}
+%\newcommand\loglik{\ell}
+\newcommand\loglik{\lambda}
+\newcommand\loglikMC{\MC{\loglik}}
+\newcommand\loglikComponent{c}
+\newcommand\R{\mathbb{R}}
+\newcommand\param{\,;}
+\newcommand\mycolon{{\hspace{0.6mm}:\hspace{0.6mm}}}
+\newcommand\MC[1]{#1^{\mbox{\tiny MC}}}
+\newcommand\Var{\mathrm{Var}}
+\newcommand\var{\Var}
+\newcommand\Cov{\mathrm{Cov}}
+\newcommand\cov{\Cov}
+\newcommand\iid{\mathrm{iid}}
+\newcommand\dist{\mathrm{dist}}
+\newcommand\transpose{t}
+
+<<cores,echo=F,cache=F,message = FALSE, warnings = FALSE,results='hide'>>=
+library(doParallel)
+cores <-  as.numeric(Sys.getenv('SLURM_NTASKS_PER_NODE', unset=NA))
+if(is.na(cores)) cores <- detectCores()
+registerDoParallel(cores)
+ggplot2::theme_set(ggplot2::theme_bw())
+@
+
+<<packages,include=F,echo=F,cache=F>>=
+library("spatPomp")
+library("gridExtra")
+library("grid")
+library("ggplot2")
+library("xtable")
+library("tidyverse")
+library("cowplot")
+library("knitr")
+library("kableExtra")
+stopifnot(packageVersion("pomp")>="4.1")
+@
+
+<<set-opts,include=F,cache=F,purl=F>>=
+
+options(
+        scipen=2,
+        help_type="html",
+        stringsAsFactors=FALSE,
+        prompt="R> ",
+        continue="+  ",
+        width=70,
+        useFancyQuotes=FALSE,
+        reindent.spaces=2,
+        xtable.comment=FALSE
+        )
+
+@
+
+<<knitr-opts,include=F,cache=F,purl=F>>=
+opts_chunk$set(
+    progress=TRUE,prompt=TRUE,highlight=FALSE,
+#    tidy=TRUE,
+#    tidy.opts=list(
+#        keep.blank.line=FALSE
+#    ),
+    comment="",
+    warning=FALSE,
+    message=FALSE,
+    error=TRUE,
+    echo=TRUE,
+    cache=FALSE,  ### SET CACHE TO TRUE WHILE EDITING TEXT
+#    cache=TRUE,  ### SET CACHE TO FALSE WHILE DEBUGGING CODE
+    strip.white=TRUE,
+    results="markup",
+    background="#FFFFFF00",
+    size="normalsize",
+    fig.path="figure/",
+    fig.lp="fig:",
+    fig.align="left",
+    fig.show="asis",
+    fig.height=5,fig.width=8,
+    out.width="\\textwidth",
+    dpi=300,
+    dev="pdf",
+    dev.args=list(
+        bg="transparent",
+        pointsize=12
+    )
+)
+@
+
+<<setup,cache=F,include=F>>=
+myround<- function (x, digits = 1) {
+  # adapted from the broman package
+  # solves the bug that round() kills significant trailing zeros
+  if (length(digits) > 1) {
+    digits <- digits[1]
+    warning("Using only digits[1]")
+  }
+  if (digits < 1) {
+    as.character(round(x,digits))
+  } else {
+    tmp <- sprintf(paste("%.", digits, "f", sep = ""), x)
+    zero <- paste0("0.", paste(rep("0", digits), collapse = ""))
+    tmp[tmp == paste0("-", zero)] <- zero
+    tmp
+  }
+}
+mysignif <- function (x, digits = 1) {
+  myround(x, digits - ceiling(log10(abs(x))))
+}
+@
+
+
+\title{Using an iterated block particle filter via \pkg{spatPomp}}
+\author{Ning Ning and Edward L. Ionides}
+\date{\today}
+\begin{document}
+\maketitle
+
+The IBPF algorithm studied by \citet{ning21-ibpf} and \citet{ionides22} has been contributed to the \proglang{R} package \pkg{spatPomp} \citep{asfaw21cran,asfaw21arxiv} as the function  \code{ibpf}.
+This document introduces \code{ibpf} and validates its correctness on a simple Gaussian example which is tractable using the Kalman filter.
+In addition to the \pkg{spatPomp} code presented here, the full code to reproduce this document is available in its R Noweb (\code{.Rnw}) source file. 
+
+Consider spatial units $1,\dots,\Unit$ located evenly around a circle, where $\dist(\unit,\altUnit)$ is the circle distance,
+\[
+\dist(\unit,\altUnit)
+= \min\big(|\unit-\altUnit|, |\unit-\altUnit+\Unit|, |\unit-\altUnit-\Unit|\big).
+\]
+The latent process is a $\Unit$-dimensional Brownian motion $\vec{X}(t)$ having correlation that decays with distance.
+Specifically,
+\[
+dX_\unit(t)= \sum_{\altUnit=1}^{\Unit} \rho_{\unit}^{\dist(\unit,\altUnit)} \, dW_{\altUnit}(t),
+\]
+where $W_{1}(t),\dots,W_{\Unit}(t)$ are independent Brownian motions with infinitesimal variance $\sigma_{\unit}^2$, and $|\rho_{\unit}| <1$.
+An observation $Y_n$ is made at each time $t_n=n$ for $n=1,2,\dots,N$, and we write $X_n=X(t_n)$.
+We suppose our measurement model for discrete-time observations of the latent process is
+\[
+Y_{\unit,\time}=X_{\unit,\time} + \eta_{\unit,\time}
+\]
+where  $\eta_{\unit,\time}\overset{\text{iid}}{\sim} \normal(0,\tau_{\unit}^2)$.
+The model is completed by providing the initial conditions, $\{X_\unit(0), \unit \in 1:\Unit \}$, at time $t_0=0$.
+These initial conditions are specified as parameters.
+An instance of this model is generated below, using the \code{bm2} function.
+
+<<bm-setup,echo=F,eval=T>>=
+set.seed(20)
+@
+
+%%%%%% iiiiiiii %%%%
+<<bm-model,echo=T,eval=T>>=
+library(spatPomp)
+i <- 2
+b <- bm2(U=4,N=switch(i,20,200),unit_specific_names="rho")
+plot(b)
+@
+
+<<bm-followup,echo=F,eval=T>>=
+U <- length(unit_names(b))
+@
+
+Here, \code{i} is a computational intensity switch which adjusts the code for varying run-time.
+We set \code{i=1} for testing and debugging, and \code{i=2} for higher quality results.
+For simplicity, we consider only one unit-specific parameter, $\rho_{\unit}$, with other parameters being fixed at a value shared between units.
+The simulation for \code{b} has $\rho_u=\Sexpr{coef(b)["rho1"]}$ for all $\unit$, but the estimators do not know this.
+Before carrying out inference, we check likelihood evaluation.
+For this toy model, the \pkg{spatPomp} function \code{bm2\_kalman\_logLik} provides an exact log-likelihood via the Kalman filter.
+This study uses a sufficiently small number of units (\code{U=\Sexpr{U}}) that the particle filter is numerically tractable.
+We use the particle filter provided by the \pkg{pomp} package \citep{king16}, taking advantage of the class structure where \class{spatPomp} inherits from \class{pomp}.
+We can readily validate the agreement between \code{bm2\_kalman\_logLik} and \code{pfilter}, and identify the likelihood cost of the block filter approximation in this situation.
+
+<<bm_logLik_code,cache=F,echo=T,eval=F>>=
+kf_logLik <- bm2_kalman_logLik(b)
+pf_logLik <- replicate(10,
+  logLik(pfilter(b,switch(i,10,1000)))
+)
+bpf_logLik2 <- replicate(10,
+  logLik(bpfilter(b,switch(i,10,1000),block_size=2))
+)
+@
+
+<<bm_logLik_eval,cache=F,echo=F,eval=T>>=
+out_dir <- paste0("out_",i,"/")
+if(!dir.exists(out_dir)) dir.create(out_dir)
+stew(file=paste0(out_dir,"logLik.rda"),seed=10,{
+<<bm_logLik_code>>
+  bpf_logLik1 <- replicate(10,
+    logLik(bpfilter(b,switch(i,10,1000),block_size=1))
+  )
+  bpf_logLik4 <- replicate(10,
+    logLik(bpfilter(b,switch(i,10,1000),block_size=4))
+  )
+})
+@
+
+\begin{table}
+\begin{tabular}{llrrrrr}
+               & & KF & PF & BPF & BPF & BPF
+	       \\
+               & &  &  & ($K=1$) & ($K=2$) & ($K=4$)
+	       
+\\
+\hline
+Log-likelihood & mean &
+  \Sexpr{myround(kf_logLik,2)} &
+  \Sexpr{myround(mean(pf_logLik),2)} &
+  \Sexpr{myround(mean(bpf_logLik4),2)} &
+  \Sexpr{myround(mean(bpf_logLik2),2)} &
+  \Sexpr{myround(mean(bpf_logLik1),2)} 
+\\  
+               & sd &
+  0.00 &
+  \Sexpr{myround(sd(pf_logLik),2)} &
+  \Sexpr{myround(sd(bpf_logLik4),2)} &
+  \Sexpr{myround(sd(bpf_logLik2),2)} &
+  \Sexpr{myround(sd(bpf_logLik1),2)} 
+\end{tabular}
+\caption{Likelihood evaluation for the \code{bm2} model object, \code{b}, using the Kalman filter (KF), particle filter (PF), and block particle filter (BPF) with varying numbers of blocks ($K$).
+For Monte Carlo filters, the mean and standard deviation are shown for 10 replicates.
+}\label{tab:lik-eval}
+\end{table}
+
+Table~\ref{tab:lik-eval} shows the increasingly negative bias, and decreasing variance, of BPF as the number of blocks increases.
+For a single block, $K=1$, the BPF algorithm matches PF.
+PF provides an unbiased estimate of the likelihood, and due to the convexity of the logarithm it has negative bias (approximately equal to half the variance) for estimating the log-likelihood.
+Subsequently, we investigate inference for $\rho_{1:4}$ with $K=2$.
+
+\citet{ionides21} investigated a range of values for $U$ for this model in their Figure~1, and for an epidemiological model their Figure~3.
+The small scenario considered here, with $U=4$, is designed for the following purposes: (i) to validate whether or not \code{ibpf} is correctly coded by comparison with direct calculations using the Kalman filter; (ii) to check whether or not the block approximation has considerable adverse effects on inference in this case.
+The inherent scalability of BPF and IBPF means that results for $U=4$ are applicable to behavior on larger systems.
+
+For our test of IBPF, we start searches at $\rho_u=u/5$ to investigate the effect (if any) on starting value.
+
+<<kf_mle,echo=F,eval=T>>=
+stew(file=paste0(out_dir,"kf_mle.rda"),seed=999,{
+  bm2_negLogLik <- function(rho){
+    coef(b,names(rho)) <- unname(rho)
+    -bm2_kalman_logLik(b)
+  }
+
+  rho_init <- c(rho1=0.4,rho2=0.4,rho3=0.4,rho4=0.4)
+  bm2_negLogLik(rho_init)
+  bm2_mle <- optim(rho_init,bm2_negLogLik)
+})
+@
+
+
+
+<<kf_prof,echo=F,eval=T>>=
+stew(file=paste0(out_dir,"kf_prof.rda"),seed=999,{
+bm2_negProf <- function(rho_est,rho_fixed,u){
+  rho_new <- rep(NA,U)
+  names(rho_new) <- paste0("rho",1:U)
+  rho_new[names(rho_est)] <- unname(rho_est)
+  rho_new[u] <- rho_fixed
+  coef(b,names(rho_new)) <- unname(rho_new)
+  -bm2_kalman_logLik(b)
+}
+
+prof_init <- rep(0.4,U)
+names(prof_init) <- paste0("rho",1:U)
+prof_vals <- seq(from=0,to=0.8,length=switch(i,5,20))
+
+kf_prof <- function(rho_vals,u){
+  foreach(rho_prof=rho_vals)%dopar% {
+    optim(prof_init[-u],bm2_negProf,rho_fixed=rho_prof,u=u)
+  }
+}
+
+prof1 <- kf_prof(prof_vals,u=1)
+prof2 <- kf_prof(prof_vals,u=2)
+prof3 <- kf_prof(prof_vals,u=3)
+prof4 <- kf_prof(prof_vals,u=4)
+
+prof1_logLik <- sapply(prof1,function(x)-x$value)
+prof2_logLik <- sapply(prof2,function(x)-x$value)
+prof3_logLik <- sapply(prof3,function(x)-x$value)
+prof4_logLik <- sapply(prof4,function(x)-x$value)
+})
+
+prof_range <- range(c(-bm2_mle$value,-bm2_mle$value-10))
+if(0){
+  par(mfrow=c(2,2))
+  plot(y=prof1_logLik,x=prof_vals,ty="l",ylim=prof_range,
+    ylab="Log-likelihood",xlab="rho1")
+  plot(y=prof2_logLik,x=prof_vals,ty="l",ylim=prof_range,
+    ylab="Log-likelihood",xlab="rho2")
+  plot(y=prof3_logLik,x=prof_vals,ty="l",ylim=prof_range,
+    ylab="Log-likelihood",xlab="rho3")
+  plot(y=prof4_logLik,x=prof_vals,ty="l",ylim=prof_range,
+    ylab="Log-likelihood",xlab="rho4")
+}
+@
+
+<<ibpf-mle-code,eval=F,echo=T>>=
+rho_start <- seq(from=0.2,to=0.8,length=U)
+params_start <- coef(b)
+params_start[paste0("rho",1:U)] <- rho_start
+ibpf_mle_searches <- foreach(reps=1:switch(i,3,10))%dopar%{
+  ibpf(b,params=params_start,
+    Nbpf=switch(i,2,50),Np=switch(i,20,1000),
+    rw.sd=rw.sd(rho1=0.02,rho2=0.02,rho3=0.02,rho4=0.02),
+    unitParNames="rho",
+    sharedParNames=NULL,
+    block_size=2,
+    spat_regression=0,
+    cooling.fraction.50=0.5
+  )
+}
+@
+
+<<ibpf-mle-eval,eval=T,echo=F>>=
+stew(file=paste0(out_dir,"ibpf_mle.rda"),seed=999,{
+<<ibpf-mle-code>>
+})
+
+<<ibpf-mle-lik,eval=T,echo=F>>=
+stew(file=paste0(out_dir,"ibpf_mle_lik.rda"),seed=888,{
+ibpf_kf_eval <- sapply(ibpf_mle_searches,bm2_kalman_logLik)
+ibpf_bpf_eval <- foreach(bm2fit=ibpf_mle_searches,.combine=cbind) %dopar% {
+  replicate(switch(i,5,20),
+    logLik(bpfilter(bm2fit,block_size=2,Np=switch(i,20,1000)))
+  )
+}
+})
+@
+
+To assess the success of these searches, we evaluate the likelihood of the resulting parameter estimates using the Kalman filter.
+The highest likelihood found in these ten searches was \Sexpr{myround(max(ibpf_kf_eval),2)}
+ which is not far from the actual maximum of \Sexpr{myround(-bm2_mle$value,2)}.
+However, the median of \Sexpr{myround(median(ibpf_kf_eval),2)} reveals that substantial Monte Carlo maximization error is present.
+It can be intractable to increase computational effort to the point where the Monte Carlo error is negligible, and instead we emphasize methods that quantify and control this.
+
+The MLE may be of less interest than marginal confidence intervals for each unit-specific parameter.
+Therefore, we compute a profile likelihood for each $u$. 
+We calculate a profile likelihood for each value of $u$, using Monte Carlo adjusted profile methodology \citep{ionides17,ning21}. 
+We compare this with an exact likelihood profile constructed by numerical optimization of the log-likelihood evaluated using the Kalman filter.
+The IBPF implementation is identical to the search above, except that the profiled parameter is fixed.
+For the profile shown in Figure~\ref{fig:ibpf-prof1-plot}, we first evaluate the likelihood using BPF rather than the Kalman filter, to present methodology applicable to non-Gaussian models.
+We then check against the likelihood evaluated via the Kalman filter for the IBPF estimates, and the profile computed directly from the Kalman filter.
+These reveal a distinct bias in the IBPF/BPF profile, apparently primarily to do with a bias in likelihood evaluation.
+The parameter in question describes a dynamic coupling between the units, and it seems that the blocking procedure breaks some of the coupling and thereby infers a higher value of the coupling parameter that used for the simulation.
+The bottom panel of Figure~\label{fig:ibpf-prof1-plot} shows that we can also diagnose this effect using the particle filter, on this small example for which the particle filter is tractable.
+
+<<ibpf-prof,eval=T,echo=F>>=
+stew(file=paste0(out_dir,"prof1.rda"),seed=722,{
+tic <- Sys.time()
+u <- 1
+rho_start <- seq(from=0.2,to=0.8,length=U)
+reps <- switch(i,3,10)
+param_start_matrix <- matrix(params_start,byrow=TRUE,
+  ncol=length(coef(b)),nrow=reps*length(prof_vals),
+  dimnames=list(NULL,names(coef(b))))
+param_start_matrix[,paste0("rho",u)] <- rep(prof_vals,each=reps)
+ibpf_prof_searches <- foreach(s=1:nrow(param_start_matrix))%dopar%{
+  rw.sd_call <- rep(list(0.02),times=U-1)
+  names(rw.sd_call) <- lapply((1:U)[-u],function(x)paste0("rho",x))
+  ibpf(b,
+    params=param_start_matrix[s,],
+    Nbpf=switch(i,2,50),Np=switch(i,20,1000),
+    rw.sd=do.call(rw.sd,rw.sd_call),
+    unitParNames="rho",
+    sharedParNames=NULL,
+    block_size=2,
+    spat_regression=0,
+    cooling.fraction.50=0.5
+  )
+}
+toc <- Sys.time()
+})
+prof1time <- toc-tic
+@
+
+
+<<ibpf-prof-lik,eval=T,echo=F>>=
+stew(file=paste0(out_dir,"prof1_lik.rda"),seed=868,{
+tic <- Sys.time()
+prof1_kf_eval <- sapply(ibpf_prof_searches,bm2_kalman_logLik)
+ibpf_bpf_eval <- foreach(bm2fit=ibpf_prof_searches,.combine=cbind) %dopar% {
+  replicate(switch(i,5,20),
+    logLik(bpfilter(bm2fit,block_size=2,Np=switch(i,20,1000)))
+  )
+}
+ibpf_pf_eval <- foreach(bm2fit=ibpf_prof_searches,.combine=cbind) %dopar% {
+  replicate(switch(i,5,20),
+    logLik(pfilter(bm2fit,Np=switch(i,20,1000)))
+  )
+}
+toc <- Sys.time()
+})
+prof1eval_time <- toc-tic
+@
+
+The profile took \Sexpr{myround(as.double(prof1time,units="mins"),2)} mins using \Sexpr{cores} computing cores.
+Likelihood evaluation took \Sexpr{myround(as.double(prof1eval_time,units="mins"),2)}, shared between BPF and PF.
+
+<<ibpf-prof1-plot, fig.height=8, fig.width=6, out.width="5.5in", fig.cap = "Top: profile for $\\rho_1$ using an IBPF search with likelihood computed using BPF, for $K=2$ blocks each having 2 units. Middle: Exact profile (dashed red line) and the same IBPF search with likelihood computed exactly using the Kalman filter. Bottom: The same IBPF search with likelihood computed using the particle filter.",eval=T,echo=F>>= 
+
+par(mfrow=c(3,1))
+par(mai=c(0.9,0.9,0.1,0.2))
+
+##### bpf evaluation
+p1bpf <- apply(matrix(apply(ibpf_bpf_eval,2,mean),nrow=reps),2,max)
+bpf_prof_range <- c(max(p1bpf)-10,max(p1bpf))
+plot(y=p1bpf,x=prof_vals,ylim=bpf_prof_range,
+  ylab="Log-likelihood")
+p1bpf_mcap <- mcap(logLik=p1bpf,parameter=prof_vals)
+lines(p1bpf_mcap$fit$parameter,p1bpf_mcap$fit$smoothed)
+
+abline(v=p1bpf_mcap$ci)
+
+###### kf evaluation
+p1kf <- apply(matrix(prof1_kf_eval,nrow=reps),2,max)
+plot(y=p1kf,x=prof_vals,ylim=prof_range,
+  ylab="Log-likelihood",xlab="")
+p1kf_mcap <- mcap(logLik=p1kf,parameter=prof_vals)
+lines(p1kf_mcap$fit$parameter,p1kf_mcap$fit$smoothed)
+p1exact_mcap <- mcap(logLik=prof1_logLik,prof_vals)
+# points(y=prof1_logLik,x=prof_vals,col="red")
+lines(p1exact_mcap$fit$parameter,p1exact_mcap$fit$smoothed,col="red",lty="dashed")
+
+abline(v=p1kf_mcap$ci)
+abline(v=p1exact_mcap$ci,col="red",lty="dashed")
+
+######## pf evaluation
+p1pf <- apply(matrix(apply(ibpf_pf_eval,2,mean),nrow=reps),2,max)
+pf_prof_range <- c(max(p1pf)-10,max(p1pf))
+plot(y=p1pf,x=prof_vals,ylim=pf_prof_range,
+  ylab="Log-likelihood",xlab="rho1")
+p1pf_mcap <- mcap(logLik=p1pf,parameter=prof_vals)
+lines(p1pf_mcap$fit$parameter,p1pf_mcap$fit$smoothed)
+
+abline(v=p1pf_mcap$ci)
+
+@
+
+We now do the same calculation for $\sigma$ for comparison with $\rho$.
+
+<<bm-sigma-model,echo=T,eval=T>>=
+set.seed(20)
+b_sig <- bm2(U=4,N=switch(i,20,200),unit_specific_names="sigma")
+# b_sig has the same data as b
+# plot(b_sig)
+
+  bm2_sig_negLogLik <- function(sigma){
+    coef(b_sig,names(sigma)) <- unname(sigma)
+    -bm2_kalman_logLik(b_sig)
+  }
+
+stew(file=paste0(out_dir,"kf_mle_sig.rda"),seed=256,{
+  sigma_init <- c(sigma1=1,sigma2=1,sigma3=1,sigma4=1)
+  bm2_sig_negLogLik(sigma_init)
+  bm2_sig_mle <- optim(sigma_init,bm2_sig_negLogLik)
+})
+
+@
+
+<<kf-prof-sig,echo=F,eval=T>>=
+stew(file=paste0(out_dir,"kf_prof_sig.rda"),seed=512,{
+
+bm2_sig_negProf <- function(sigma_est,sigma_fixed,u){
+  sigma_new <- rep(NA,U)
+  names(sigma_new) <- paste0("sigma",1:U)
+  sigma_new[names(sigma_est)] <- unname(sigma_est)
+  sigma_new[u] <- sigma_fixed
+  coef(b_sig,names(sigma_new)) <- unname(sigma_new)
+  -bm2_kalman_logLik(b_sig)
+}
+
+prof_sig_init <- rep(1,U)
+names(prof_sig_init) <- paste0("sigma",1:U)
+prof_sig_vals <- seq(from=0.4,to=1.6,length=switch(i,5,20))
+
+kf_sig_prof <- function(sigma_vals,u){
+  foreach(sigma_prof=sigma_vals)%dopar% {
+    optim(prof_sig_init[-u],bm2_sig_negProf,sigma_fixed=sigma_prof,u=u)
+  }
+}
+
+prof_sig1 <- kf_sig_prof(prof_sig_vals,u=1)
+prof_sig2 <- kf_sig_prof(prof_sig_vals,u=2)
+prof_sig3 <- kf_sig_prof(prof_sig_vals,u=3)
+prof_sig4 <- kf_sig_prof(prof_sig_vals,u=4)
+
+prof_sig1_logLik <- sapply(prof_sig1,function(x)-x$value)
+prof_sig2_logLik <- sapply(prof_sig2,function(x)-x$value)
+prof_sig3_logLik <- sapply(prof_sig3,function(x)-x$value)
+prof_sig4_logLik <- sapply(prof_sig4,function(x)-x$value)
+})
+
+prof_sig_range <- range(c(-bm2_sig_mle$value,-bm2_sig_mle$value-10))
+if(0){
+  par(mfrow=c(2,2))
+  plot(y=prof_sig1_logLik,x=prof_sig_vals,ty="l",ylim=prof_sig_range,
+    ylab="Log-likelihood",xlab="sigma1")
+  plot(y=prof_sig2_logLik,x=prof_sig_vals,ty="l",ylim=prof_sig_range,
+    ylab="Log-likelihood",xlab="sigma2")
+  plot(y=prof_sig3_logLik,x=prof_sig_vals,ty="l",ylim=prof_sig_range,
+    ylab="Log-likelihood",xlab="sigma3")
+  plot(y=prof_sig4_logLik,x=prof_sig_vals,ty="l",ylim=prof_sig_range,
+    ylab="Log-likelihood",xlab="sigma4")
+}
+@
+
+
+<<ibpf-prof-sig,eval=T,echo=F>>=
+stew(file=paste0(out_dir,"prof_sig1.rda"),seed=722,{
+tic <- Sys.time()
+u <- 1
+sigma_start <- seq(from=0.4,to=1.6,length=U)
+params_sig_start <- coef(b_sig)
+params_sig_start[paste0("sigma",1:U)] <- sigma_start
+reps <- switch(i,3,10)
+param_sig_start_matrix <- matrix(params_sig_start,byrow=TRUE,
+  ncol=length(coef(b_sig)),nrow=reps*length(prof_sig_vals),
+  dimnames=list(NULL,names(coef(b_sig))))
+param_sig_start_matrix[,paste0("sigma",u)] <- rep(prof_sig_vals,each=reps)
+ibpf_prof_sig_searches <- foreach(s=1:nrow(param_sig_start_matrix))%dopar%{
+  rw.sd_call <- rep(list(0.02),times=U-1)
+  names(rw.sd_call) <- lapply((1:U)[-u],function(x)paste0("sigma",x))
+  ibpf(b_sig,
+    params=param_sig_start_matrix[s,],
+    Nbpf=switch(i,2,50),Np=switch(i,20,1000),
+    rw.sd=do.call(rw.sd,rw.sd_call),
+    unitParNames="sigma",
+    sharedParNames=NULL,
+    block_size=2,
+    spat_regression=0,
+    cooling.fraction.50=0.5
+  )
+}
+toc <- Sys.time()
+})
+prof_sig1time <- toc-tic
+@
+
+
+<<ibpf-prof-sig-lik,eval=T,echo=F>>=
+stew(file=paste0(out_dir,"prof_sig1_lik.rda"),seed=868,{
+tic <- Sys.time()
+prof_sig1_kf_eval <- sapply(ibpf_prof_sig_searches,bm2_kalman_logLik)
+ibpf_bpf_sig_eval <- foreach(bm2fit=ibpf_prof_sig_searches,.combine=cbind) %dopar% {
+  replicate(switch(i,5,20),
+    logLik(bpfilter(bm2fit,block_size=2,Np=switch(i,20,1000)))
+  )
+}
+ibpf_pf_sig_eval <- foreach(bm2fit=ibpf_prof_sig_searches,.combine=cbind) %dopar% {
+  replicate(switch(i,5,20),
+    logLik(pfilter(bm2fit,Np=switch(i,20,1000)))
+  )
+}
+toc <- Sys.time()
+})
+prof_sig1eval_time <- toc-tic
+@
+
+The $\sigma_1$ profile took \Sexpr{myround(as.double(prof_sig1time,units="mins"),2)} mins using \Sexpr{cores} computing cores.
+Likelihood evaluation took \Sexpr{myround(as.double(prof_sig1eval_time,units="mins"),2)}, shared between BPF and PF.
+
+<<ibpf-prof-sig1-plot, fig.height=8, fig.width=6, out.width="5.5in", fig.cap = "Top: profile for $\\sigma_1$ using an IBPF search with likelihood computed using BPF, for $K=2$ blocks each having 2 units. Middle: Exact profile (dashed red line) and the same IBPF search with likelihood computed exactly using the Kalman filter. Bottom: The same IBPF search with likelihood computed using the particle filter.",eval=T,echo=F>>= 
+
+par(mfrow=c(3,1))
+par(mai=c(0.9,0.9,0.1,0.2))
+
+##### bpf evaluation
+p1_sig_bpf <- apply(matrix(apply(ibpf_bpf_sig_eval,2,mean),nrow=reps),2,max)
+bpf_prof_sig_range <- c(max(p1_sig_bpf)-10,max(p1_sig_bpf))
+plot(y=p1_sig_bpf,x=prof_sig_vals,ylim=bpf_prof_sig_range,
+  ylab="Log-likelihood")
+p1_sig_bpf_mcap <- mcap(logLik=p1_sig_bpf,parameter=prof_sig_vals)
+lines(p1_sig_bpf_mcap$fit$parameter,p1_sig_bpf_mcap$fit$smoothed)
+
+abline(v=p1_sig_bpf_mcap$ci)
+
+###### kf evaluation
+p1_sig_kf <- apply(matrix(prof_sig1_kf_eval,nrow=reps),2,max)
+plot(y=p1_sig_kf,x=prof_sig_vals,ylim=prof_sig_range,
+  ylab="Log-likelihood",xlab="")
+p1_sig_kf_mcap <- mcap(logLik=p1_sig_kf,parameter=prof_sig_vals)
+lines(p1_sig_kf_mcap$fit$parameter,p1_sig_kf_mcap$fit$smoothed)
+p1_sig_exact_mcap <- mcap(logLik=prof_sig1_logLik,prof_sig_vals)
+# points(y=prof_sig1_logLik,x=prof_sig_vals,col="red")
+lines(p1_sig_exact_mcap$fit$parameter,p1_sig_exact_mcap$fit$smoothed,col="red",lty="dashed")
+
+abline(v=p1_sig_kf_mcap$ci)
+abline(v=p1_sig_exact_mcap$ci,col="red",lty="dashed")
+
+######## pf evaluation
+p1_sig_pf <- apply(matrix(apply(ibpf_pf_sig_eval,2,mean),nrow=reps),2,max)
+pf_prof_sig_range <- c(max(p1_sig_pf)-10,max(p1_sig_pf))
+plot(y=p1_sig_pf,x=prof_sig_vals,ylim=pf_prof_sig_range,
+  ylab="Log-likelihood",xlab="sigma1")
+p1_sig_pf_mcap <- mcap(logLik=p1_sig_pf,parameter=prof_sig_vals)
+lines(p1_sig_pf_mcap$fit$parameter,p1_sig_pf_mcap$fit$smoothed)
+
+abline(v=p1_sig_pf_mcap$ci)
+
+@
+
+
+We now proceed to carry out a similar analysis for the measles model generated by \code{he10}.
+This is a susceptible-exposed-infected-recovered model for measles transmission, described by \citet{ionides22} and \citet{asfaw21arxiv}.
+For this model, exact likelihood evaluation is not available.
+However, for a relatively small number of units ($U=4$) the particle filter provide an adequate approximation.
+\citet{ionides22} considered fitting this model to data using IBPF, with 20 cities and up to $20\times 13$ parameters.
+Here, our task is to focus on a smaller, simulated dataset, estimating fewer parameters in order to assess more clearly whether or not the block approximation is leading to substantial bias.
+
+<<model-he10-code,eval=F,echo=T>>=
+he10_model <- he10(U=4,dt=1/365,Tmax=1964,expandedParNames=c("R0"),
+  basic_params = c(
+    alpha =0.99,      iota=0,          R0=30,
+    cohort=0.5,  amplitude=0.3,     gamma=52,
+    sigma=52,           mu=0.02,  sigmaSE=0.05,
+    rho=0.5,           psi=0.1,         g=1000,
+    S_0=0.036,         E_0=0.00007,   I_0=0.00006
+  )
+)
+m <- simulate(he10_model,seed=9)
+@
+
+<<model-he10-eval,eval=T,echo=F>>=
+stew(file=paste0(out_dir,"m-sim.rda"),{
+<<model-he10-code>>
+})
+plot(he10_model,log=T)
+plot(m,log=T)
+@
+
+<<m-logLik-eval,cache=F,echo=F,eval=T>>=
+stew(file=paste0(out_dir,"m-logLik.rda"),seed=10,{
+  tic
+  m_pf_logLik <- foreach(r=1:10,.combine=c) %dopar% {
+    logLik(pfilter(m,switch(i,10,10000)))
+  }
+  m_bpf_logLik1 <- foreach(r=1:10,.combine=c) %dopar% {
+    logLik(bpfilter(m,switch(i,10,10000),block_size=1))
+  }
+  m_bpf_logLik2 <- foreach(r=1:10,.combine=c) %dopar% {
+    logLik(bpfilter(m,switch(i,10,10000),block_size=2))
+  }
+  m_bpf_logLik4 <- foreach(r=1:10,.combine=c) %dopar% {
+    logLik(bpfilter(m,switch(i,10,10000),block_size=4))
+  }
+  m_lik_eval_time <- toc-tic
+})
+
+@
+
+Likelihood evaluation took \Sexpr{myround(as.double(m_lik_eval_time,units="mins"),2)} mins.
+
+\begin{table}
+\begin{tabular}{llrrrr}
+               & & PF & BPF & BPF & BPF
+	       \\
+               & &  & ($K=1$) & ($K=2$) & ($K=4$)
+	       
+\\
+\hline
+Log-likelihood & mean &
+  \Sexpr{myround(mean(m_pf_logLik),2)} &
+  \Sexpr{myround(mean(m_bpf_logLik4),2)} &
+  \Sexpr{myround(mean(m_bpf_logLik2),2)} &
+  \Sexpr{myround(mean(m_bpf_logLik1),2)} 
+\\  
+               & sd &
+  \Sexpr{myround(sd(m_pf_logLik),2)} &
+  \Sexpr{myround(sd(m_bpf_logLik4),2)} &
+  \Sexpr{myround(sd(m_bpf_logLik2),2)} &
+  \Sexpr{myround(sd(m_bpf_logLik1),2)} 
+\end{tabular}
+\caption{Likelihood evaluation for the \code{he10} model object, \code{m}, using the particle filter (PF), and block particle filter (BPF) with varying numbers of blocks ($K$).
+The mean and standard deviation are shown for 10 replicates with $10^4$ particles.
+}\label{tab:m-lik-eval}
+\end{table}
+
+
+<<m-prof-sig,eval=T,echo=F>>=
+stew(file=paste0(out_dir,"m_prof_R01.rda"),seed=722,{
+m_prof_R0_init <- rep(30,U)
+names(m_prof_R0_init) <- paste0("R0",1:U)
+m_prof_R0_vals <- seq(from=15,to=45,length=switch(i,5,20))
+tic <- Sys.time()
+m_R0 <- m
+u <- 2
+R0_start <- seq(from=15,to=45,length=U)
+params_R0_start <- coef(m_R0)
+params_R0_start[paste0("R0",1:U)] <- R0_start
+reps <- switch(i,3,10)
+param_R0_start_matrix <- matrix(params_R0_start,byrow=TRUE,
+  ncol=length(coef(m_R0)),nrow=reps*length(m_prof_R0_vals),
+  dimnames=list(NULL,names(coef(m_R0))))
+param_R0_start_matrix[,paste0("R0",u)] <- rep(m_prof_R0_vals,each=reps)
+m_prof_R0_searches <- foreach(s=1:nrow(param_R0_start_matrix))%dopar%{
+  rw.sd_call <- rep(list(0.02),times=U-1)
+  names(rw.sd_call) <- lapply((1:U)[-u],function(x)paste0("R0",x))
+  ibpf(m_R0,
+    params=param_R0_start_matrix[s,],
+    Nbpf=switch(i,2,50),Np=switch(i,20,2000),
+    rw.sd=do.call(rw.sd,rw.sd_call),
+    unitParNames="R0",
+    sharedParNames=NULL,
+    block_size=1,
+    spat_regression=0,
+    cooling.fraction.50=0.5
+  )
+}
+toc <- Sys.time()
+})
+m_prof_R02time <- toc-tic
+@
+
+
+<<m-prof-sig-lik,eval=T,echo=F>>=
+stew(file=paste0(out_dir,"m_prof_R0",u,"_lik.rda"),seed=868,{
+tic <- Sys.time()
+m_bpf_R0_eval <- foreach(mfit=m_prof_R0_searches,.combine=cbind) %dopar% {
+  replicate(switch(i,5,10),
+    logLik(bpfilter(mfit,block_size=1,Np=switch(i,20,5000)))
+  )
+}
+m_pf_R0_eval <- foreach(mfit=m_prof_R0_searches,.combine=cbind) %dopar% {
+  replicate(switch(i,5,10),
+    logLik(pfilter(mfit,Np=switch(i,20,5000)))
+  )
+}
+toc <- Sys.time()
+})
+m_prof_R02eval_time <- toc-tic
+@
+
+The $\R0_1$ profile took \Sexpr{myround(as.double(m_prof_R02time,units="mins"),2)} mins using \Sexpr{cores} computing cores.
+Likelihood evaluation took \Sexpr{myround(as.double(m_prof_R02eval_time,units="mins"),2)}, shared between BPF and PF.
+
+<<m-prof-sig1-plot, fig.height=8, fig.width=6, out.width="5.5in", fig.cap = "Top: profile for $R0_1$ using an IBPF search with likelihood computed using BPF, for $K=4$ blocks each having 1 unit. Middle: Exact profile (dashed red line) and the same IBPF search with likelihood computed exactly using the Kalman filter. Bottom: The same IBPF search with likelihood computed using the particle filter.",eval=T,echo=F>>= 
+
+par(mfrow=c(2,1))
+par(mai=c(0.9,0.9,0.1,0.2))
+
+##### window to avoid problematic particle filter behavior at extremes
+prof_include <- (m_prof_R0_vals > 20) & (m_prof_R0_vals < 40)
+
+##### bpf evaluation
+m_p2_R0_bpf <- apply(matrix(apply(m_bpf_R0_eval,2,mean),nrow=reps),2,max)[prof_include]
+bpf_prof_R0_range <- c(max(m_p2_R0_bpf)-80,max(m_p2_R0_bpf))
+plot(y=m_p2_R0_bpf,x=m_prof_R0_vals[prof_include], ylim=bpf_prof_R0_range,
+  ylab="Log-likelihood")
+m_p2_R0_bpf_mcap <- mcap(logLik=m_p2_R0_bpf,
+  parameter=m_prof_R0_vals[prof_include])
+lines(m_p2_R0_bpf_mcap$fit$parameter,m_p2_R0_bpf_mcap$fit$smoothed)
+
+abline(v=m_p2_R0_bpf_mcap$ci)
+
+######## pf evaluation
+m_p2_R0_pf <- apply(matrix(apply(m_pf_R0_eval,2,mean),nrow=reps),2,max)[prof_include]
+pf_prof_R0_range <- c(max(m_p2_R0_pf)-80,max(m_p2_R0_pf))
+plot(y=m_p2_R0_pf,x=m_prof_R0_vals[prof_include], ylim=pf_prof_R0_range,
+  ylab="Log-likelihood",xlab="R02")
+m_p2_R0_pf_mcap <- mcap(logLik=m_p2_R0_pf,parameter=m_prof_R0_vals[prof_include])
+lines(m_p2_R0_pf_mcap$fit$parameter,m_p2_R0_pf_mcap$fit$smoothed)
+
+abline(v=m_p2_R0_pf_mcap$ci)
+
+@
+
+
+\bibliography{bib-bm}
+
+\end{document}

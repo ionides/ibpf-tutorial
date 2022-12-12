@@ -237,7 +237,7 @@ set.seed(20)
 %%%%%% iiiiiiii %%%%
 <<bm-model,echo=T,eval=T>>=
 library(spatPomp)
-i <- 2
+i <- 1
 b <- bm2(U=4,N=switch(i,20,200),unit_specific_names="rho")
 plot(b)
 @
@@ -761,15 +761,15 @@ The mean and standard deviation are shown for 10 replicates with $10^4$ particle
 \end{table}
 
 
-<<m-prof-sig,eval=T,echo=F>>=
-stew(file=paste0(out_dir,"m_prof_R01.rda"),seed=722,{
+<<m-prof-R0,eval=T,echo=F>>=
+stew(file=paste0(out_dir,"m_prof_R02.rda"),seed=722,{
 m_prof_R0_init <- rep(30,U)
 names(m_prof_R0_init) <- paste0("R0",1:U)
-m_prof_R0_vals <- seq(from=15,to=45,length=switch(i,5,20))
+m_prof_R0_vals <- seq(from=25,to=35,length=switch(i,5,20))
 tic <- Sys.time()
 m_R0 <- m
 u <- 2
-R0_start <- seq(from=15,to=45,length=U)
+R0_start <- seq(from=25,to=35,length=U)
 params_R0_start <- coef(m_R0)
 params_R0_start[paste0("R0",1:U)] <- R0_start
 reps <- switch(i,3,10)
@@ -797,7 +797,7 @@ m_prof_R02time <- toc-tic
 @
 
 
-<<m-prof-sig-lik,eval=T,echo=F>>=
+<<m-prof-R0-lik,eval=T,echo=F>>=
 stew(file=paste0(out_dir,"m_prof_R0",u,"_lik.rda"),seed=868,{
 tic <- Sys.time()
 m_bpf_R0_eval <- foreach(mfit=m_prof_R0_searches,.combine=cbind) %dopar% {
@@ -815,22 +815,22 @@ toc <- Sys.time()
 m_prof_R02eval_time <- toc-tic
 @
 
-The $\R0_1$ profile took \Sexpr{myround(as.double(m_prof_R02time,units="mins"),2)} mins using \Sexpr{cores} computing cores.
+The $R0_2$ profile took \Sexpr{myround(as.double(m_prof_R02time,units="mins"),2)} mins using \Sexpr{cores} computing cores.
 Likelihood evaluation took \Sexpr{myround(as.double(m_prof_R02eval_time,units="mins"),2)}, shared between BPF and PF.
 
-<<m-prof-sig1-plot, fig.height=8, fig.width=6, out.width="5.5in", fig.cap = "Top: profile for $R0_1$ using an IBPF search with likelihood computed using BPF, for $K=4$ blocks each having 1 unit. Middle: Exact profile (dashed red line) and the same IBPF search with likelihood computed exactly using the Kalman filter. Bottom: The same IBPF search with likelihood computed using the particle filter.",eval=T,echo=F>>= 
+<<m-prof-R02-plot, fig.height=8, fig.width=6, out.width="5.5in", fig.cap = "Top: profile for $R0_2$ using an IBPF search with likelihood computed using BPF, for $K=4$ blocks each having 1 unit. Bottom: The same IBPF search with likelihood computed using the particle filter.",eval=T,echo=F>>= 
 
 par(mfrow=c(2,1))
 par(mai=c(0.9,0.9,0.1,0.2))
 
-##### window to avoid problematic particle filter behavior at extremes
+##### window if needed to avoid extremes with filter failures
 prof_include <- (m_prof_R0_vals > 20) & (m_prof_R0_vals < 40)
 
 ##### bpf evaluation
 m_p2_R0_bpf <- apply(matrix(apply(m_bpf_R0_eval,2,mean),nrow=reps),2,max)[prof_include]
 bpf_prof_R0_range <- c(max(m_p2_R0_bpf)-80,max(m_p2_R0_bpf))
 plot(y=m_p2_R0_bpf,x=m_prof_R0_vals[prof_include], ylim=bpf_prof_R0_range,
-  ylab="Log-likelihood")
+  ylab="Log-likelihood",xlab="")
 m_p2_R0_bpf_mcap <- mcap(logLik=m_p2_R0_bpf,
   parameter=m_prof_R0_vals[prof_include])
 lines(m_p2_R0_bpf_mcap$fit$parameter,m_p2_R0_bpf_mcap$fit$smoothed)

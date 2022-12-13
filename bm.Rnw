@@ -116,14 +116,14 @@ ggplot2::theme_set(ggplot2::theme_bw())
 
 <<packages,include=F,echo=F,cache=F>>=
 library("spatPomp")
-library("gridExtra")
-library("grid")
+#library("gridExtra")
+#library("grid")
 library("ggplot2")
-library("xtable")
+#library("xtable")
 library("tidyverse")
-library("cowplot")
+#library("cowplot")
 library("knitr")
-library("kableExtra")
+#library("kableExtra")
 stopifnot(packageVersion("pomp")>="4.1")
 @
 
@@ -237,7 +237,7 @@ set.seed(20)
 %%%%%% iiiiiiii %%%%
 <<bm-model,echo=T,eval=T>>=
 library(spatPomp)
-i <- 1
+i <- 2
 b <- bm2(U=4,N=switch(i,20,200),unit_specific_names="rho")
 plot(b)
 @

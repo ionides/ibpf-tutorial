@@ -116,14 +116,9 @@ ggplot2::theme_set(ggplot2::theme_bw())
 
 <<packages,include=F,echo=F,cache=F>>=
 library("spatPomp")
-#library("gridExtra")
-#library("grid")
 library("ggplot2")
-#library("xtable")
 library("tidyverse")
-#library("cowplot")
 library("knitr")
-#library("kableExtra")
 stopifnot(packageVersion("pomp")>="4.1")
 @
 
@@ -207,7 +202,11 @@ mysignif <- function (x, digits = 1) {
 
 The IBPF algorithm studied by \citet{ning21-ibpf} and \citet{ionides22} has been contributed to the \proglang{R} package \pkg{spatPomp} \citep{asfaw21cran,asfaw21arxiv} as the function  \code{ibpf}.
 This document introduces \code{ibpf} and validates its correctness on a simple Gaussian example which is tractable using the Kalman filter.
-In addition to the \pkg{spatPomp} code presented here, the full code to reproduce this document is available in its R Noweb (\code{.Rnw}) source file. 
+We also test \code{ibpf} on simulated data for a measles transmission model.
+
+In addition to the \pkg{spatPomp} code presented here, the full code to reproduce this document is available in the R Noweb (\code{.Rnw}) source file. 
+
+\section{Correlated Gaussian random walks} \label{sec:bm}
 
 Consider spatial units $1,\dots,\Unit$ located evenly around a circle, where $\dist(\unit,\altUnit)$ is the circle distance,
 \[
@@ -237,8 +236,8 @@ set.seed(20)
 %%%%%% iiiiiiii %%%%
 <<bm-model,echo=T,eval=T>>=
 library(spatPomp)
-i <- 2
-b <- bm2(U=4,N=switch(i,20,200),unit_specific_names="rho")
+i <- 1
+b <- bm2(U=4,N=switch(i,10,200),unit_specific_names="rho")
 plot(b)
 @
 
@@ -267,9 +266,9 @@ bpf_logLik2 <- replicate(10,
 @
 
 <<bm_logLik_eval,cache=F,echo=F,eval=T>>=
-out_dir <- paste0("out_",i,"/")
-if(!dir.exists(out_dir)) dir.create(out_dir)
-stew(file=paste0(out_dir,"logLik.rda"),seed=10,{
+bm_dir <- paste0("bm_",i,"/")
+if(!dir.exists(bm_dir)) dir.create(bm_dir)
+stew(file=paste0(bm_dir,"logLik.rda"),seed=10,{
 <<bm_logLik_code>>
   bpf_logLik1 <- replicate(10,
     logLik(bpfilter(b,switch(i,10,1000),block_size=1))
@@ -319,7 +318,7 @@ The inherent scalability of BPF and IBPF means that results for $U=4$ are applic
 For our test of IBPF, we start searches at $\rho_u=u/5$ to investigate the effect (if any) on starting value.
 
 <<kf_mle,echo=F,eval=T>>=
-stew(file=paste0(out_dir,"kf_mle.rda"),seed=999,{
+stew(file=paste0(bm_dir,"kf_mle.rda"),seed=999,{
   bm2_negLogLik <- function(rho){
     coef(b,names(rho)) <- unname(rho)
     -bm2_kalman_logLik(b)
@@ -334,7 +333,7 @@ stew(file=paste0(out_dir,"kf_mle.rda"),seed=999,{
 
 
 <<kf_prof,echo=F,eval=T>>=
-stew(file=paste0(out_dir,"kf_prof.rda"),seed=999,{
+stew(file=paste0(bm_dir,"kf_prof.rda"),seed=999,{
 bm2_negProf <- function(rho_est,rho_fixed,u){
   rho_new <- rep(NA,U)
   names(rho_new) <- paste0("rho",1:U)
@@ -385,7 +384,7 @@ params_start <- coef(b)
 params_start[paste0("rho",1:U)] <- rho_start
 ibpf_mle_searches <- foreach(reps=1:switch(i,3,10))%dopar%{
   ibpf(b,params=params_start,
-    Nbpf=switch(i,2,50),Np=switch(i,20,1000),
+    Nbpf=switch(i,2,50),Np=switch(i,10,1000),
     rw.sd=rw.sd(rho1=0.02,rho2=0.02,rho3=0.02,rho4=0.02),
     unitParNames="rho",
     sharedParNames=NULL,
@@ -397,16 +396,16 @@ ibpf_mle_searches <- foreach(reps=1:switch(i,3,10))%dopar%{
 @
 
 <<ibpf-mle-eval,eval=T,echo=F>>=
-stew(file=paste0(out_dir,"ibpf_mle.rda"),seed=999,{
+stew(file=paste0(bm_dir,"ibpf_mle.rda"),seed=999,{
 <<ibpf-mle-code>>
 })
 
 <<ibpf-mle-lik,eval=T,echo=F>>=
-stew(file=paste0(out_dir,"ibpf_mle_lik.rda"),seed=888,{
+stew(file=paste0(bm_dir,"ibpf_mle_lik.rda"),seed=878,{
 ibpf_kf_eval <- sapply(ibpf_mle_searches,bm2_kalman_logLik)
 ibpf_bpf_eval <- foreach(bm2fit=ibpf_mle_searches,.combine=cbind) %dopar% {
-  replicate(switch(i,5,20),
-    logLik(bpfilter(bm2fit,block_size=2,Np=switch(i,20,1000)))
+  replicate(switch(i,3,10),
+    logLik(bpfilter(bm2fit,block_size=2,Np=switch(i,10,1000)))
   )
 }
 })
@@ -430,7 +429,7 @@ The parameter in question describes a dynamic coupling between the units, and it
 The bottom panel of Figure~\label{fig:ibpf-prof1-plot} shows that we can also diagnose this effect using the particle filter, on this small example for which the particle filter is tractable.
 
 <<ibpf-prof,eval=T,echo=F>>=
-stew(file=paste0(out_dir,"prof1.rda"),seed=722,{
+stew(file=paste0(bm_dir,"prof1.rda"),seed=722,{
 tic <- Sys.time()
 u <- 1
 rho_start <- seq(from=0.2,to=0.8,length=U)
@@ -460,17 +459,17 @@ prof1time <- toc-tic
 
 
 <<ibpf-prof-lik,eval=T,echo=F>>=
-stew(file=paste0(out_dir,"prof1_lik.rda"),seed=868,{
+stew(file=paste0(bm_dir,"prof1_lik.rda"),seed=868,{
 tic <- Sys.time()
 prof1_kf_eval <- sapply(ibpf_prof_searches,bm2_kalman_logLik)
 ibpf_bpf_eval <- foreach(bm2fit=ibpf_prof_searches,.combine=cbind) %dopar% {
   replicate(switch(i,5,20),
-    logLik(bpfilter(bm2fit,block_size=2,Np=switch(i,20,1000)))
+    logLik(bpfilter(bm2fit,block_size=2,Np=switch(i,10,1000)))
   )
 }
 ibpf_pf_eval <- foreach(bm2fit=ibpf_prof_searches,.combine=cbind) %dopar% {
   replicate(switch(i,5,20),
-    logLik(pfilter(bm2fit,Np=switch(i,20,1000)))
+    logLik(pfilter(bm2fit,Np=switch(i,10,1000)))
   )
 }
 toc <- Sys.time()
@@ -481,7 +480,7 @@ prof1eval_time <- toc-tic
 The profile took \Sexpr{myround(as.double(prof1time,units="mins"),2)} mins using \Sexpr{cores} computing cores.
 Likelihood evaluation took \Sexpr{myround(as.double(prof1eval_time,units="mins"),2)}, shared between BPF and PF.
 
-<<ibpf-prof1-plot, fig.height=8, fig.width=6, out.width="5.5in", fig.cap = "Top: profile for $\\rho_1$ using an IBPF search with likelihood computed using BPF, for $K=2$ blocks each having 2 units. Middle: Exact profile (dashed red line) and the same IBPF search with likelihood computed exactly using the Kalman filter. Bottom: The same IBPF search with likelihood computed using the particle filter.",eval=T,echo=F>>= 
+<<ibpf-prof-rho-plot, fig.height=8, fig.width=6, out.width="5.5in", fig.cap = "Top: profile for $\\rho_1$ using an IBPF search with likelihood computed using BPF, for $K=2$ blocks each having 2 units. Middle: Exact profile (dashed red line) and the same IBPF search with likelihood computed exactly using the Kalman filter. Bottom: The same IBPF search with likelihood computed using the particle filter.",eval=T,echo=F>>= 
 
 par(mfrow=c(3,1))
 par(mai=c(0.9,0.9,0.1,0.2))
@@ -525,16 +524,14 @@ We now do the same calculation for $\sigma$ for comparison with $\rho$.
 
 <<bm-sigma-model,echo=T,eval=T>>=
 set.seed(20)
-b_sig <- bm2(U=4,N=switch(i,20,200),unit_specific_names="sigma")
-# b_sig has the same data as b
-# plot(b_sig)
+b_sig <- bm2(U=4,N=switch(i,10,200),unit_specific_names="sigma")
 
-  bm2_sig_negLogLik <- function(sigma){
+bm2_sig_negLogLik <- function(sigma){
     coef(b_sig,names(sigma)) <- unname(sigma)
     -bm2_kalman_logLik(b_sig)
   }
 
-stew(file=paste0(out_dir,"kf_mle_sig.rda"),seed=256,{
+stew(file=paste0(bm_dir,"kf_mle_sig.rda"),seed=256,{
   sigma_init <- c(sigma1=1,sigma2=1,sigma3=1,sigma4=1)
   bm2_sig_negLogLik(sigma_init)
   bm2_sig_mle <- optim(sigma_init,bm2_sig_negLogLik)
@@ -543,7 +540,7 @@ stew(file=paste0(out_dir,"kf_mle_sig.rda"),seed=256,{
 @
 
 <<kf-prof-sig,echo=F,eval=T>>=
-stew(file=paste0(out_dir,"kf_prof_sig.rda"),seed=512,{
+stew(file=paste0(bm_dir,"kf_prof_sig.rda"),seed=512,{
 
 bm2_sig_negProf <- function(sigma_est,sigma_fixed,u){
   sigma_new <- rep(NA,U)
@@ -591,13 +588,13 @@ if(0){
 
 
 <<ibpf-prof-sig,eval=T,echo=F>>=
-stew(file=paste0(out_dir,"prof_sig1.rda"),seed=722,{
+stew(file=paste0(bm_dir,"prof_sig1.rda"),seed=722,{
 tic <- Sys.time()
 u <- 1
 sigma_start <- seq(from=0.4,to=1.6,length=U)
 params_sig_start <- coef(b_sig)
 params_sig_start[paste0("sigma",1:U)] <- sigma_start
-reps <- switch(i,3,10)
+reps <- switch(i,2,10)
 param_sig_start_matrix <- matrix(params_sig_start,byrow=TRUE,
   ncol=length(coef(b_sig)),nrow=reps*length(prof_sig_vals),
   dimnames=list(NULL,names(coef(b_sig))))
@@ -607,7 +604,7 @@ ibpf_prof_sig_searches <- foreach(s=1:nrow(param_sig_start_matrix))%dopar%{
   names(rw.sd_call) <- lapply((1:U)[-u],function(x)paste0("sigma",x))
   ibpf(b_sig,
     params=param_sig_start_matrix[s,],
-    Nbpf=switch(i,2,50),Np=switch(i,20,1000),
+    Nbpf=switch(i,2,50),Np=switch(i,10,1000),
     rw.sd=do.call(rw.sd,rw.sd_call),
     unitParNames="sigma",
     sharedParNames=NULL,
@@ -623,17 +620,17 @@ prof_sig1time <- toc-tic
 
 
 <<ibpf-prof-sig-lik,eval=T,echo=F>>=
-stew(file=paste0(out_dir,"prof_sig1_lik.rda"),seed=868,{
+stew(file=paste0(bm_dir,"prof_sig1_lik.rda"),seed=868,{
 tic <- Sys.time()
 prof_sig1_kf_eval <- sapply(ibpf_prof_sig_searches,bm2_kalman_logLik)
 ibpf_bpf_sig_eval <- foreach(bm2fit=ibpf_prof_sig_searches,.combine=cbind) %dopar% {
-  replicate(switch(i,5,20),
-    logLik(bpfilter(bm2fit,block_size=2,Np=switch(i,20,1000)))
+  replicate(switch(i,2,10),
+    logLik(bpfilter(bm2fit,block_size=2,Np=switch(i,10,1000)))
   )
 }
 ibpf_pf_sig_eval <- foreach(bm2fit=ibpf_prof_sig_searches,.combine=cbind) %dopar% {
-  replicate(switch(i,5,20),
-    logLik(pfilter(bm2fit,Np=switch(i,20,1000)))
+  replicate(switch(i,2,10),
+    logLik(pfilter(bm2fit,Np=switch(i,10,1000)))
   )
 }
 toc <- Sys.time()
@@ -644,7 +641,7 @@ prof_sig1eval_time <- toc-tic
 The $\sigma_1$ profile took \Sexpr{myround(as.double(prof_sig1time,units="mins"),2)} mins using \Sexpr{cores} computing cores.
 Likelihood evaluation took \Sexpr{myround(as.double(prof_sig1eval_time,units="mins"),2)}, shared between BPF and PF.
 
-<<ibpf-prof-sig1-plot, fig.height=8, fig.width=6, out.width="5.5in", fig.cap = "Top: profile for $\\sigma_1$ using an IBPF search with likelihood computed using BPF, for $K=2$ blocks each having 2 units. Middle: Exact profile (dashed red line) and the same IBPF search with likelihood computed exactly using the Kalman filter. Bottom: The same IBPF search with likelihood computed using the particle filter.",eval=T,echo=F>>= 
+<<ibpf-prof-sig-plot, fig.height=8, fig.width=6, out.width="5.5in", fig.cap = "Top: profile for $\\sigma_1$ using an IBPF search with likelihood computed using BPF, for $K=2$ blocks each having 2 units. Middle: Exact profile (dashed red line) and the same IBPF search with likelihood computed exactly using the Kalman filter. Bottom: The same IBPF search with likelihood computed using the particle filter.",eval=T,echo=F>>= 
 
 par(mfrow=c(3,1))
 par(mai=c(0.9,0.9,0.1,0.2))
@@ -684,6 +681,13 @@ abline(v=p1_sig_pf_mcap$ci)
 
 @
 
+These results show that there is noticeable bias in using BPF for likelihood evaluation for this model.
+This bias leads to parameter estimation bias for IBPF.
+The same methods can be used to assess BPF and IBPF for a metapopulation model.
+We will see below that this model is well suited to BPF and IBPF.
+Intuitively, this may be because the coupling between units is weak---population movement between towns is critical to disease dynamics, but the vast majority of transmission occurs among residents of the same town.
+
+\section{A measles model} \label{sec:measles}
 
 We now proceed to carry out a similar analysis for the measles model generated by \code{he10}.
 This is a susceptible-exposed-infected-recovered model for measles transmission, described by \citet{ionides22} and \citet{asfaw21arxiv}.
@@ -691,30 +695,42 @@ For this model, exact likelihood evaluation is not available.
 However, for a relatively small number of units ($U=4$) the particle filter provide an adequate approximation.
 \citet{ionides22} considered fitting this model to data using IBPF, with 20 cities and up to $20\times 13$ parameters.
 Here, our task is to focus on a smaller, simulated dataset, estimating fewer parameters in order to assess more clearly whether or not the block approximation is leading to substantial bias.
+We choose two large towns (London and Birmingham) and two small towns (Cardiff and Hastings) since we expect that population movement from large towns to small towns is essential to explain disase persistence in small towns.
+Large towns can maintain an ongoing epidemic, but, below a critical community size local extinction of the disease is expected during epidemic troughs.
 
 <<model-he10-code,eval=F,echo=T>>=
-he10_model <- he10(U=4,dt=1/365,Tmax=1964,expandedParNames=c("R0"),
+he10_model <- he10(U=4,dt=1/365,Tmax=switch(i,1964,1964),
+  expandedParNames=c("R0"),
+  towns_selected=c(1,2,11,12),
   basic_params = c(
     alpha =0.99,      iota=0,          R0=30,
     cohort=0.5,  amplitude=0.3,     gamma=52,
     sigma=52,           mu=0.02,  sigmaSE=0.05,
-    rho=0.5,           psi=0.1,         g=1000,
+    rho=0.5,           psi=0.1,         g=800,
     S_0=0.036,         E_0=0.00007,   I_0=0.00006
   )
 )
-m <- simulate(he10_model,seed=9)
+m_seed <- 27
+# plot(simulate(he10_model,seed=1))
+m <- simulate(he10_model,seed=m_seed)
 @
 
-<<model-he10-eval,eval=T,echo=F>>=
-stew(file=paste0(out_dir,"m-sim.rda"),{
+<<model-he10-eval,eval=T,echo=F,fig.height=4, fig.width=6, out.width="6.5in", fig.cap = "Weekly measles case report data for four UK towns.">>=
+m_dir <- paste0("m_",i,"/")
+if(!dir.exists(m_dir)) dir.create(m_dir)
+stew(file=paste0(m_dir,"m-sim.rda"),{
 <<model-he10-code>>
 })
+par(mfrow=c(2,1))
 plot(he10_model,log=T)
+@
+
+<<he10-sim-plot,echo=F,fig.height=4, fig.width=6, out.width="6.5in", fig.cap = "Simulated data from the \\code{he10} model for four towns">>=
 plot(m,log=T)
 @
 
 <<m-logLik-eval,cache=F,echo=F,eval=T>>=
-stew(file=paste0(out_dir,"m-logLik.rda"),seed=10,{
+stew(file=paste0(m_dir,"m-logLik.rda"),seed=10,{
   tic
   m_pf_logLik <- foreach(r=1:10,.combine=c) %dopar% {
     logLik(pfilter(m,switch(i,10,10000)))
@@ -728,12 +744,12 @@ stew(file=paste0(out_dir,"m-logLik.rda"),seed=10,{
   m_bpf_logLik4 <- foreach(r=1:10,.combine=c) %dopar% {
     logLik(bpfilter(m,switch(i,10,10000),block_size=4))
   }
+  toc
   m_lik_eval_time <- toc-tic
 })
 
 @
 
-Likelihood evaluation took \Sexpr{myround(as.double(m_lik_eval_time,units="mins"),2)} mins.
 
 \begin{table}
 \begin{tabular}{llrrrr}
@@ -760,29 +776,35 @@ The mean and standard deviation are shown for 10 replicates with $10^4$ particle
 }\label{tab:m-lik-eval}
 \end{table}
 
+Likelihood evaluation took \Sexpr{myround(as.double(m_lik_eval_time,units="mins"),2)} mins.
+Recall that the bias-variance trade-off for likelihood evaluation becomes a tradeoff between two sources of bias for log-likelihood evaluation, due to Jensen's inqeuality.
+Table~\ref{tab:m-lik-eval} shows that little likelihood is lost due to the block approximation for small numbers of units.
+Indeed, even for a large number of particles, a small block size gives higher log-likelihood estimates.
+This is on contrast to the results in Table~\ref{tab:lik-eval} for the spatially correlated random walk example in Section~\ref{sec:bm}.
+
+Accurate BPF likelihood evalution for a small number of units suggests that the accuracy will persist for larger numbers of units.
+It is hard to directly test this for the measles model, since we do not have an alternative accurate evalation once PF becomes inapplicable.
+However, BPF has favorable scaling properties, and if the weak coupling that makes BPF accurate on the small system is also a feature of the big system, it may be reasonable to expect accuracy in situations where it cannot be directly tested.
+
+
 
 <<m-prof-R0,eval=T,echo=F>>=
-stew(file=paste0(out_dir,"m_prof_R02.rda"),seed=722,{
-m_prof_R0_init <- rep(30,U)
-names(m_prof_R0_init) <- paste0("R0",1:U)
+stew(file=paste0(m_dir,"m_prof_R02.rda"),seed=722,{
 m_prof_R0_vals <- seq(from=25,to=35,length=switch(i,5,20))
 tic <- Sys.time()
 m_R0 <- m
-u <- 2
-R0_start <- seq(from=25,to=35,length=U)
-params_R0_start <- coef(m_R0)
-params_R0_start[paste0("R0",1:U)] <- R0_start
+m_R0_prof_u <- 1
 reps <- switch(i,3,10)
-param_R0_start_matrix <- matrix(params_R0_start,byrow=TRUE,
+param_R0_start_matrix <- matrix(coef(m_R0),byrow=TRUE,
   ncol=length(coef(m_R0)),nrow=reps*length(m_prof_R0_vals),
   dimnames=list(NULL,names(coef(m_R0))))
-param_R0_start_matrix[,paste0("R0",u)] <- rep(m_prof_R0_vals,each=reps)
+param_R0_start_matrix[,paste0("R0",m_R0_prof_u)] <- rep(m_prof_R0_vals,each=reps)
 m_prof_R0_searches <- foreach(s=1:nrow(param_R0_start_matrix))%dopar%{
   rw.sd_call <- rep(list(0.02),times=U-1)
-  names(rw.sd_call) <- lapply((1:U)[-u],function(x)paste0("R0",x))
+  names(rw.sd_call) <- lapply((1:U)[-m_R0_prof_u],function(x)paste0("R0",x))
   ibpf(m_R0,
     params=param_R0_start_matrix[s,],
-    Nbpf=switch(i,2,50),Np=switch(i,20,2000),
+    Nbpf=switch(i,2,50),Np=switch(i,10,2000),
     rw.sd=do.call(rw.sd,rw.sd_call),
     unitParNames="R0",
     sharedParNames=NULL,
@@ -793,38 +815,38 @@ m_prof_R0_searches <- foreach(s=1:nrow(param_R0_start_matrix))%dopar%{
 }
 toc <- Sys.time()
 })
-m_prof_R02time <- toc-tic
+m_prof_R0_time <- toc-tic
 @
 
 
 <<m-prof-R0-lik,eval=T,echo=F>>=
-stew(file=paste0(out_dir,"m_prof_R0",u,"_lik.rda"),seed=868,{
+stew(file=paste0(m_dir,"m_prof_R0",m_R0_prof_u,"_lik.rda"),seed=868,{
 tic <- Sys.time()
 m_bpf_R0_eval <- foreach(mfit=m_prof_R0_searches,.combine=cbind) %dopar% {
-  replicate(switch(i,5,10),
-    logLik(bpfilter(mfit,block_size=1,Np=switch(i,20,5000)))
+  replicate(switch(i,2,10),
+    logLik(bpfilter(mfit,block_size=1,Np=switch(i,10,5000)))
   )
 }
 m_pf_R0_eval <- foreach(mfit=m_prof_R0_searches,.combine=cbind) %dopar% {
-  replicate(switch(i,5,10),
-    logLik(pfilter(mfit,Np=switch(i,20,5000)))
+  replicate(switch(i,2,10),
+    logLik(pfilter(mfit,Np=switch(i,10,5000)))
   )
 }
 toc <- Sys.time()
 })
-m_prof_R02eval_time <- toc-tic
+m_prof_R0_eval_time <- toc-tic
 @
 
-The $R0_2$ profile took \Sexpr{myround(as.double(m_prof_R02time,units="mins"),2)} mins using \Sexpr{cores} computing cores.
-Likelihood evaluation took \Sexpr{myround(as.double(m_prof_R02eval_time,units="mins"),2)}, shared between BPF and PF.
+The $R0_\Sexpr{m_R0_prof_u}$ profile took \Sexpr{myround(as.double(m_prof_R0_time,units="mins"),2)} mins using \Sexpr{cores} computing cores.
+Likelihood evaluation took \Sexpr{myround(as.double(m_prof_R0_eval_time,units="mins"),2)}, shared between BPF and PF.
 
-<<m-prof-R02-plot, fig.height=8, fig.width=6, out.width="5.5in", fig.cap = "Top: profile for $R0_2$ using an IBPF search with likelihood computed using BPF, for $K=4$ blocks each having 1 unit. Bottom: The same IBPF search with likelihood computed using the particle filter.",eval=T,echo=F>>= 
+<<m-prof-R0-plot, fig.height=8, fig.width=6, out.width="5.5in", fig.cap = "Top: profile for $R0_1$ using an IBPF search with likelihood computed using BPF, for $K=4$ blocks each having 1 unit. Bottom: The same IBPF search with likelihood computed using the particle filter.",eval=T,echo=F>>= 
 
 par(mfrow=c(2,1))
 par(mai=c(0.9,0.9,0.1,0.2))
 
-##### window if needed to avoid extremes with filter failures
-prof_include <- (m_prof_R0_vals > 20) & (m_prof_R0_vals < 40)
+##### window to avoid problematic particle filter behavior at extremes
+prof_include <- (m_prof_R0_vals > 10) & (m_prof_R0_vals < 50)
 
 ##### bpf evaluation
 m_p2_R0_bpf <- apply(matrix(apply(m_bpf_R0_eval,2,mean),nrow=reps),2,max)[prof_include]
@@ -841,7 +863,7 @@ abline(v=m_p2_R0_bpf_mcap$ci)
 m_p2_R0_pf <- apply(matrix(apply(m_pf_R0_eval,2,mean),nrow=reps),2,max)[prof_include]
 pf_prof_R0_range <- c(max(m_p2_R0_pf)-80,max(m_p2_R0_pf))
 plot(y=m_p2_R0_pf,x=m_prof_R0_vals[prof_include], ylim=pf_prof_R0_range,
-  ylab="Log-likelihood",xlab="R02")
+  ylab="Log-likelihood",xlab="R0")
 m_p2_R0_pf_mcap <- mcap(logLik=m_p2_R0_pf,parameter=m_prof_R0_vals[prof_include])
 lines(m_p2_R0_pf_mcap$fit$parameter,m_p2_R0_pf_mcap$fit$smoothed)
 
@@ -849,7 +871,159 @@ abline(v=m_p2_R0_pf_mcap$ci)
 
 @
 
+If IBPF is effectively maximizing the BPF approximation to the likelihood, then situations where BPF has low likelihood evaluation bias may correspond to situations where IBPF has low estimation bias.
+A profile likelihood for one paramter is presented to support this, in Figure~\ref{fig:m-prof-R0-plot}.
+Here, the evaluation using PF gives a slightly tighter estimate of the profile, but this may be less accurate: PF is a higher variance algorithm, even with $U=4$, and its variance increases as the model becomes increasingly misspecified.
+Thus, the profile likelihood estimate may have additional curvature due to increasing variance (and therefore increasing Jensen bias) away from the MLE.
 
-\bibliography{bib-bm}
+%%%  ggggggravity parameter %%%%%%%
+
+<<model-he10-g,eval=T,echo=F>>=
+stew(file=paste0(m_dir,"m-g-sim.rda"),{
+he10_model <- he10(U=4,dt=1/365,Tmax=switch(i,1964,1964),
+  expandedParNames=c("g"),
+  towns_selected=c(1,2,11,12),
+  basic_params = c(
+    alpha =0.99,      iota=0,          R0=30,
+    cohort=0.5,  amplitude=0.3,     gamma=52,
+    sigma=52,           mu=0.02,  sigmaSE=0.05,
+    rho=0.5,           psi=0.1,         g=800,
+    S_0=0.036,         E_0=0.00007,   I_0=0.00006
+  )
+)
+m_g <- simulate(he10_model,seed=m_seed)
+if(any(obs(m_g)-obs(m_R0) != 0)) stop("m_g and m_R0 should have the same synthetic data")
+})
+@
+
+
+%% sssssssss
+
+<<m-slice-g,eval=T,echo=F>>=
+stew(file=paste0(m_dir,"m_slice_g.rda"),seed=722,{
+m_g_prof_u <- 4
+slice_reps <- switch(i,2,10)
+slice_points <- switch(i,5,20)
+slice_g_vals <- rep(seq(from=100,to=2500,length=slice_points),each=slice_reps)
+params_g_slice<- matrix(coef(m_g),
+  nrow=slice_reps*slice_points,
+  ncol=length(coef(m_g)),
+  byrow=T,
+  dimnames=list(NULL,names(coef(m_g))))
+params_g_slice[,paste0("g",m_g_prof_u)] <- slice_g_vals
+tic <- Sys.time()
+m_slice_g_evals <- foreach(s=1:nrow(params_g_slice),.combine=c)%dopar%{
+  logLik(bpfilter(m_g,
+    params=params_g_slice[s,],
+    Np=switch(i,10,5000),
+    block_size=1
+  ))
+}
+toc <- Sys.time()
+m_slice_g_time <- toc-tic
+})
+@
+
+<<m_slice_g_plot,eval=T,echo=F,fig.height=4, fig.width=6, out.width="5.5in", fig.cap = "Slice for $g_4$ through the true parameter vector, using BPF evaluation with $K=4$ blocks each having 1 unit.">>=
+
+plot(y=m_slice_g_evals,x=slice_g_vals,xlab="g",ylab="Log-likelihood")
+m_slice_g_mcap <- mcap(logLik=m_slice_g_evals,parameter=slice_g_vals)
+lines(m_slice_g_mcap$fit$parameter,m_slice_g_mcap$fit$smoothed)
+
+abline(v=m_slice_g_mcap$ci)
+
+@
+
+The block approximation in BPF concerns dependence between blocks and therefore may have an effect on estimation of parameters describing the coupling between units.
+The measles metapopulation model has a so-called gravity model for coupling, with a parameter $g_u$ controlling the rate of transmission from other cities into city $u$.
+A relatively straightforward way to investigate estimation of $g_u$ using BPF and IBPF is to compute a likelihood slice through the true parameter value for a simulation, with only $g_u$ being varied.
+Here, we investigate a slice for $u=4$.
+A likelihood profile cannot take a lower value than a likelihood slice, since the profile has an additional optimization.
+Therefore, a flat slice implies a flat profile; the converse is not necessarily true.
+Clear evidence of bias in a slice for a small number of units would anticipate difficulties when undertaking the more time-consuming task of obtaining a profile with many units and many parameters.
+Figure~\ref{fig:m_slice_g_plot} suggests that the BPF likelihood approximation leads to a low-bias estimate of $g_u$ when compared with Figures~\ref{fig:ibpf-prof-rho-plot} and~\ref{fig:ibpf-prof-sig-plot}.
+CHECK THAT THIS MAKES SENSE IN THE CONTEXT OF THE FINAL RESULTS.
+
+The $g_\Sexpr{m_g_prof_u}$ slice took \Sexpr{myround(as.double(m_slice_g_time,units="mins"),2)} mins using \Sexpr{cores} computing cores.
+
+<<m-prof-g,eval=F,echo=F>>=
+stew(file=paste0(m_dir,"m_prof_g.rda"),seed=722,{
+m_prof_g_vals <- seq(from=200,to=1800,length=switch(i,5,20))
+tic <- Sys.time()
+reps <- switch(i,2,10)
+param_g_start_matrix <- matrix(coef(m_g),byrow=TRUE,
+  ncol=length(coef(m_g)),nrow=reps*length(m_prof_g_vals),
+  dimnames=list(NULL,names(coef(m_g))))
+param_g_start_matrix[,paste0("g",m_g_prof_u)] <- rep(m_prof_g_vals,each=reps)
+m_prof_g_searches <- foreach(s=1:nrow(param_g_start_matrix))%dopar%{
+  rw.sd_call <- rep(list(0.02),times=U-1)
+  names(rw.sd_call) <- lapply((1:U)[-m_g_prof_u],function(x)paste0("g",x))
+  ibpf(m_g,
+    params=param_g_start_matrix[s,],
+    Nbpf=switch(i,2,50),Np=switch(i,10,2000),
+    rw.sd=do.call(rw.sd,rw.sd_call),
+    unitParNames="g",
+    sharedParNames=NULL,
+    block_size=1,
+    spat_regression=0,
+    cooling.fraction.50=0.5
+  )
+}
+toc <- Sys.time()
+})
+m_prof_g_time <- toc-tic
+@
+
+
+<<m-prof-g-lik,eval=F,echo=F>>=
+stew(file=paste0(m_dir,"m_prof_g",m_g_prof_u,"_lik.rda"),seed=868,{
+tic <- Sys.time()
+m_bpf_g_eval <- foreach(mfit=m_prof_g_searches,.combine=cbind) %dopar% {
+  replicate(switch(i,2,10),
+    logLik(bpfilter(mfit,block_size=1,Np=switch(i,10,5000)))
+  )
+}
+m_pf_g_eval <- foreach(mfit=m_prof_g_searches,.combine=cbind) %dopar% {
+  replicate(switch(i,2,10),
+    logLik(pfilter(mfit,Np=switch(i,10,5000)))
+  )
+}
+toc <- Sys.time()
+})
+m_prof_g_eval_time <- toc-tic
+@
+
+%% The $g_\Sexpr{m_g_prof_u}$ profile took \Sexpr{myround(as.double(m_prof_g_time,units="mins"),2)} mins using \Sexpr{cores} computing cores.
+%% Likelihood evaluation took \Sexpr{myround(as.double(m_prof_g_eval_time,units="mins"),2)}, shared between BPF and PF.
+
+<<m-prof-g-plot,eval=F,echo=F, fig.height=8, fig.width=6, out.width="5.5in", fig.cap = "Top: profile for $g_4$ using an IBPF search with likelihood computed using BPF, for $K=4$ blocks each having 1 unit. Bottom: The same IBPF search with likelihood computed using the particle filter.">>= 
+
+par(mfrow=c(2,1))
+par(mai=c(0.9,0.9,0.1,0.2))
+
+##### bpf evaluation
+m_p2_g_bpf <- apply(matrix(apply(m_bpf_g_eval,2,mean),nrow=reps),2,max)
+bpf_prof_g_range <- c(max(m_p2_g_bpf)-10,max(m_p2_g_bpf))
+plot(y=m_p2_g_bpf,x=m_prof_g_vals,ylim=bpf_prof_g_range,
+  ylab="Log-likelihood",xlab="")
+m_p2_g_bpf_mcap <- mcap(logLik=m_p2_g_bpf,parameter=m_prof_g_vals)
+lines(m_p2_g_bpf_mcap$fit$parameter,m_p2_g_bpf_mcap$fit$smoothed)
+
+abline(v=m_p2_g_bpf_mcap$ci)
+
+######## pf evaluation
+m_p2_g_pf <- apply(matrix(apply(m_pf_g_eval,2,mean),nrow=reps),2,max)
+pf_prof_g_range <- c(max(m_p2_g_pf)-10,max(m_p2_g_pf))
+plot(y=m_p2_g_pf,x=m_prof_g_vals,ylim=pf_prof_g_range,
+  ylab="Log-likelihood",xlab="g")
+m_p2_g_pf_mcap <- mcap(logLik=m_p2_g_pf,parameter=m_prof_g_vals)
+lines(m_p2_g_pf_mcap$fit$parameter,m_p2_g_pf_mcap$fit$smoothed)
+
+abline(v=m_p2_g_pf_mcap$ci)
+
+@
+
+
+\bibliography{bib-tutorial}
 
 \end{document}

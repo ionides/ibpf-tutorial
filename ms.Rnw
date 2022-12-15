@@ -480,7 +480,7 @@ prof1eval_time <- toc-tic
 The profile took \Sexpr{myround(as.double(prof1time,units="mins"),2)} mins using \Sexpr{cores} computing cores.
 Likelihood evaluation took \Sexpr{myround(as.double(prof1eval_time,units="mins"),2)}, shared between BPF and PF.
 
-<<ibpf-prof-rho-plot, fig.height=8, fig.width=6, out.width="5.5in", fig.cap = "Top: profile for $\\rho_1$ using an IBPF search with likelihood computed using BPF, for $K=2$ blocks each having 2 units. Middle: Exact profile (dashed red line) and the same IBPF search with likelihood computed exactly using the Kalman filter. Bottom: The same IBPF search with likelihood computed using the particle filter.",eval=T,echo=F>>= 
+<<ibpf-prof-rho-plot, fig.height=8, fig.width=6, out.width="5.5in", fig.cap = "Top: profile for $\\rho_1$ using an IBPF search with likelihood computed using BPF, for $K=2$ blocks each having 2 units. Middle: Exact profile (dashed red line) and the same IBPF search with likelihood computed exactly using the Kalman filter. Bottom: The same IBPF search with likelihood computed using the particle filter. Vertical lines show the MLE and a 95\\% confidence interval, with a dotted line at the true parameter value.",eval=T,echo=F>>= 
 
 par(mfrow=c(3,1))
 par(mai=c(0.9,0.9,0.1,0.2))
@@ -494,6 +494,8 @@ p1bpf_mcap <- mcap(logLik=p1bpf,parameter=prof_vals)
 lines(p1bpf_mcap$fit$parameter,p1bpf_mcap$fit$smoothed)
 
 abline(v=p1bpf_mcap$ci)
+abline(v=p1bpf_mcap$mle)
+abline(v=coef(b)["rho1"],lty="dotted")
 
 ###### kf evaluation
 p1kf <- apply(matrix(prof1_kf_eval,nrow=reps),2,max)
@@ -507,6 +509,8 @@ lines(p1exact_mcap$fit$parameter,p1exact_mcap$fit$smoothed,col="red",lty="dashed
 
 abline(v=p1kf_mcap$ci)
 abline(v=p1exact_mcap$ci,col="red",lty="dashed")
+abline(v=p1kf_mcap$mle)
+abline(v=coef(b)["rho1"],lty="dotted")
 
 ######## pf evaluation
 p1pf <- apply(matrix(apply(ibpf_pf_eval,2,mean),nrow=reps),2,max)
@@ -517,6 +521,8 @@ p1pf_mcap <- mcap(logLik=p1pf,parameter=prof_vals)
 lines(p1pf_mcap$fit$parameter,p1pf_mcap$fit$smoothed)
 
 abline(v=p1pf_mcap$ci)
+abline(v=p1pf_mcap$mle)
+abline(v=coef(b)["rho1"],lty="dotted")
 
 @
 
@@ -641,7 +647,7 @@ prof_sig1eval_time <- toc-tic
 The $\sigma_1$ profile took \Sexpr{myround(as.double(prof_sig1time,units="mins"),2)} mins using \Sexpr{cores} computing cores.
 Likelihood evaluation took \Sexpr{myround(as.double(prof_sig1eval_time,units="mins"),2)}, shared between BPF and PF.
 
-<<ibpf-prof-sig-plot, fig.height=8, fig.width=6, out.width="5.5in", fig.cap = "Top: profile for $\\sigma_1$ using an IBPF search with likelihood computed using BPF, for $K=2$ blocks each having 2 units. Middle: Exact profile (dashed red line) and the same IBPF search with likelihood computed exactly using the Kalman filter. Bottom: The same IBPF search with likelihood computed using the particle filter.",eval=T,echo=F>>= 
+<<ibpf-prof-sig-plot, fig.height=8, fig.width=6, out.width="5.5in", fig.cap = "Top: profile for $\\sigma_1$ using an IBPF search with likelihood computed using BPF, for $K=2$ blocks each having 2 units. Middle: Exact profile (dashed red line) and the same IBPF search with likelihood computed exactly using the Kalman filter. Bottom: The same IBPF search with likelihood computed using the particle filter. Vertical lines show the MLE and a 95\\% confidence interval, with a dotted line at the true parameter value.",eval=T,echo=F>>= 
 
 par(mfrow=c(3,1))
 par(mai=c(0.9,0.9,0.1,0.2))
@@ -655,6 +661,8 @@ p1_sig_bpf_mcap <- mcap(logLik=p1_sig_bpf,parameter=prof_sig_vals)
 lines(p1_sig_bpf_mcap$fit$parameter,p1_sig_bpf_mcap$fit$smoothed)
 
 abline(v=p1_sig_bpf_mcap$ci)
+abline(v=p1_sig_bpf_mcap$mle)
+abline(v=coef(b_sig)["sigma1"],lty="dotted")
 
 ###### kf evaluation
 p1_sig_kf <- apply(matrix(prof_sig1_kf_eval,nrow=reps),2,max)
@@ -668,6 +676,8 @@ lines(p1_sig_exact_mcap$fit$parameter,p1_sig_exact_mcap$fit$smoothed,col="red",l
 
 abline(v=p1_sig_kf_mcap$ci)
 abline(v=p1_sig_exact_mcap$ci,col="red",lty="dashed")
+abline(v=p1_sig_kf_mcap$mle)
+abline(v=coef(b_sig)["sigma1"],lty="dotted")
 
 ######## pf evaluation
 p1_sig_pf <- apply(matrix(apply(ibpf_pf_sig_eval,2,mean),nrow=reps),2,max)
@@ -678,6 +688,8 @@ p1_sig_pf_mcap <- mcap(logLik=p1_sig_pf,parameter=prof_sig_vals)
 lines(p1_sig_pf_mcap$fit$parameter,p1_sig_pf_mcap$fit$smoothed)
 
 abline(v=p1_sig_pf_mcap$ci)
+abline(v=p1_sig_pf_mcap$mle)
+abline(v=coef(b_sig)["sigma1"],lty="dotted")
 
 @
 
@@ -840,7 +852,7 @@ m_prof_R0_eval_time <- toc-tic
 The $R0_\Sexpr{m_R0_prof_u}$ profile took \Sexpr{myround(as.double(m_prof_R0_time,units="mins"),2)} mins using \Sexpr{cores} computing cores.
 Likelihood evaluation took \Sexpr{myround(as.double(m_prof_R0_eval_time,units="mins"),2)}, shared between BPF and PF.
 
-<<m-prof-R0-plot, fig.height=8, fig.width=6, out.width="5.5in", fig.cap = "Top: profile for $R0_1$ using an IBPF search with likelihood computed using BPF, for $K=4$ blocks each having 1 unit. Bottom: The same IBPF search with likelihood computed using the particle filter.",eval=T,echo=F>>= 
+<<m-prof-R0-plot, fig.height=8, fig.width=6, out.width="5.5in", fig.cap = "Top: profile for $R0_1$ using an IBPF search with likelihood computed using BPF, for $K=4$ blocks each having 1 unit. Bottom: The same IBPF search with likelihood computed using the particle filter. Vertical lines show the MLE and a 95\\% confidence interval, with a dotted line at the true parameter value.",eval=T,echo=F>>= 
 
 par(mfrow=c(2,1))
 par(mai=c(0.9,0.9,0.1,0.2))
@@ -858,6 +870,8 @@ m_p2_R0_bpf_mcap <- mcap(logLik=m_p2_R0_bpf,
 lines(m_p2_R0_bpf_mcap$fit$parameter,m_p2_R0_bpf_mcap$fit$smoothed)
 
 abline(v=m_p2_R0_bpf_mcap$ci)
+abline(v=m_p2_R0_bpf_mcap$mle)
+abline(v=coef(m_R0)[paste0("R0",m_R0_prof_u)],lty="dotted")
 
 ######## pf evaluation
 m_p2_R0_pf <- apply(matrix(apply(m_pf_R0_eval,2,mean),nrow=reps),2,max)[prof_include]
@@ -868,6 +882,8 @@ m_p2_R0_pf_mcap <- mcap(logLik=m_p2_R0_pf,parameter=m_prof_R0_vals[prof_include]
 lines(m_p2_R0_pf_mcap$fit$parameter,m_p2_R0_pf_mcap$fit$smoothed)
 
 abline(v=m_p2_R0_pf_mcap$ci)
+abline(v=m_p2_R0_pf_mcap$mle)
+abline(v=coef(m_R0)[paste0("R0",m_R0_prof_u)],lty="dotted")
 
 @
 
@@ -924,13 +940,15 @@ m_slice_g_time <- toc-tic
 })
 @
 
-<<m_slice_g_plot,eval=T,echo=F,fig.height=4, fig.width=6, out.width="5.5in", fig.cap = "Slice for $g_4$ through the true parameter vector, using BPF evaluation with $K=4$ blocks each having 1 unit.">>=
+<<m_slice_g_plot,eval=T,echo=F,fig.height=4, fig.width=6, out.width="5.5in", fig.cap = "Slice for $g_4$ through the true parameter vector, using BPF evaluation with $K=4$ blocks each having 1 unit. Vertical lines show the MLE and a 95\\% confidence interval, with a dotted line at the true parameter value.">>=
 
 plot(y=m_slice_g_evals,x=slice_g_vals,xlab="g",ylab="Log-likelihood")
 m_slice_g_mcap <- mcap(logLik=m_slice_g_evals,parameter=slice_g_vals)
 lines(m_slice_g_mcap$fit$parameter,m_slice_g_mcap$fit$smoothed)
 
 abline(v=m_slice_g_mcap$ci)
+abline(v=m_slice_g_mcap$mle)
+abline(v=coef(m_g)[paste0("g",m_g_prof_u)],lty="dotted")
 
 @
 
@@ -941,8 +959,9 @@ Here, we investigate a slice for $u=4$.
 A likelihood profile cannot take a lower value than a likelihood slice, since the profile has an additional optimization.
 Therefore, a flat slice implies a flat profile; the converse is not necessarily true.
 Clear evidence of bias in a slice for a small number of units would anticipate difficulties when undertaking the more time-consuming task of obtaining a profile with many units and many parameters.
-Figure~\ref{fig:m_slice_g_plot} suggests that the BPF likelihood approximation leads to a low-bias estimate of $g_u$ when compared with Figures~\ref{fig:ibpf-prof-rho-plot} and~\ref{fig:ibpf-prof-sig-plot}.
-CHECK THAT THIS MAKES SENSE IN THE CONTEXT OF THE FINAL RESULTS.
+Figure~\ref{fig:m_slice_g_plot} suggests that the BPF likelihood approximation leads to a lower-bias estimate of $g_u$ than for the coupling parameter $\rho$ in the Gaussian model (Figure~\ref{fig:ibpf-prof-rho-plot}).
+Figure~\ref{fig:m_slice_g_plot} is consistent with a small positive bias: BPF ignores part of the dependence in the filter distribution, so it may be expected that it compensates by a bias toward parameter values that increase the coupling.
+
 
 The $g_\Sexpr{m_g_prof_u}$ slice took \Sexpr{myround(as.double(m_slice_g_time,units="mins"),2)} mins using \Sexpr{cores} computing cores.
 

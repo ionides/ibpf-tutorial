@@ -308,7 +308,7 @@ Subsequently, we investigate inference for $\rho_{1:4}$ with $K=2$.
 
 \citet{ionides21} investigated a range of values for $U$ for this model in their Figure~1, and for an epidemiological model their Figure~3.
 The small scenario considered here, with $U=4$, is designed for the following purposes: (i) to validate whether or not \code{ibpf} is correctly coded by comparison with direct calculations using the Kalman filter; (ii) to check whether or not the block approximation has considerable adverse effects on inference in this case.
-The inherent scalability of BPF and IBPF means that results for $U=4$ are applicable to behavior on larger systems.
+The inherent scalability of BPF and IBPF, together with the spatial homogeneity of the model, suggests that results for $U=4$ should be representative for larger $U$.
 
 For our test of IBPF, we start searches at $\rho_u=u/5$ to investigate the effect (if any) on starting value.
 
@@ -409,17 +409,16 @@ To assess the success of these searches, we evaluate the likelihood of the resul
 The highest likelihood found in these ten searches was \Sexpr{myround(max(ibpf_kf_eval),2)}
  which is not far from the actual maximum of \Sexpr{myround(-bm2_mle$value,2)}.
 However, the median of \Sexpr{myround(median(ibpf_kf_eval),2)} reveals that substantial Monte Carlo maximization error is present.
-It can be intractable to increase computational effort to the point where the Monte Carlo error is negligible, and instead we emphasize methods that quantify and control this.
+On harder problems, it can be intractable to increase computational effort to the point where the Monte Carlo error is negligible, and instead we emphasize methods that quantify and control the error.
 
 The MLE may be of less interest than marginal confidence intervals for each unit-specific parameter.
-Therefore, we compute a profile likelihood for each $u$. 
-We calculate a profile likelihood for each value of $u$, using Monte Carlo adjusted profile methodology \citep{ionides17,ning21}. 
+Therefore, we compute a profile likelihood for $\rho_u$, using Monte Carlo adjusted profile methodology \citep{ionides17,ning21}. 
 We compare this with an exact likelihood profile constructed by numerical optimization of the log-likelihood evaluated using the Kalman filter.
 The IBPF implementation is identical to the search above, except that the profiled parameter is fixed.
 For the profile shown in Figure~\ref{fig:ibpf-prof-rho-plot}, we first evaluate the likelihood using BPF rather than the Kalman filter, to present methodology applicable to non-Gaussian models.
 We then check against the likelihood evaluated via the Kalman filter for the IBPF estimates, and the profile computed directly from the Kalman filter.
 These reveal a distinct bias in the IBPF/BPF profile, apparently primarily to do with a bias in likelihood evaluation.
-The parameter in question describes a dynamic coupling between the units, and it seems that the blocking procedure breaks some of the coupling and thereby infers a higher value of the coupling parameter that used for the simulation.
+The parameter in question describes a dynamic coupling between the units, and a heuristic explanation may be that the blocking procedure breaks some of the coupling and thereby leads to a higher inferred value of the coupling parameter to counterbalance that bias.
 The bottom panel of Figure~\label{fig:ibpf-prof-rho-plot} shows that we can also diagnose this effect using the particle filter, on this small example for which the particle filter is tractable.
 
 <<ibpf-prof,eval=T,echo=F>>=
@@ -471,8 +470,7 @@ prof1cores <- cores
 prof1eval_time <- toc-tic
 @
 
-The profile took \Sexpr{myround(as.double(prof1time,units="mins"),2)} mins using \Sexpr{prof1cores} computing cores.
-Likelihood evaluation took \Sexpr{myround(as.double(prof1eval_time,units="mins"),2)}, shared between BPF and PF.
+The profile maximization took \Sexpr{myround(as.double(prof1time,units="mins"),2)} mins using \Sexpr{prof1cores} computing cores.
 
 <<ibpf-prof-rho-plot, fig.height=8, fig.width=6, out.width="5.5in", fig.cap = "Top: profile for $\\rho_1$ using an IBPF search with likelihood computed using BPF, for $K=2$ blocks each having 2 units. Middle: Exact profile (dashed red line) and the same IBPF search with likelihood computed exactly using the Kalman filter. Bottom: The same IBPF search with likelihood computed using the particle filter. Vertical lines show the MLE and a 95\\% confidence interval, with a dotted line at the true parameter value.",eval=T,echo=F>>= 
 
@@ -685,15 +683,16 @@ abline(v=coef(b_sig)["sigma1"],lty="dotted")
 @
 
 We now do the same calculation for $\sigma$, shown in Figure~\ref{fig:ibpf-prof-sig-plot},  for comparison with $\rho$.
-For this model, we see that there is noticeable discrepancy between the true profile and that obtained using BPF for likelihood evaluation.
-This bias is stronger for $\rho$  than $\sigma$, and may lead to parameter estimation bias for IBPF.
-The same methods can be used to assess BPF and IBPF for a metapopulation model.
+There is some evidence of a bias for $\sigma$, but the issue appears to be more severe for $\rho$.
+
+In Figures~\ref{fig:ibpf-prof-sig-plot} and~\ref{fig:ibpf-prof-rho-plot}, we see that the particle filter provides a close approximation to the exact likelihood, though even for 4 units the variablility is noticeable.
+Comparison with PF for a small number of units can be used to assess BPF and IBPF for a metapopulation model.
 We will see below that this model is well suited to BPF and IBPF.
 Intuitively, this may be because the coupling between units is weak---population movement between towns is critical to disease dynamics, but the vast majority of transmission occurs among residents of the same town.
 
 \section{A measles model} \label{sec:measles}
 
-We now proceed to carry out a similar analysis for the measles model generated by \code{he10}.
+We now proceed to carry out a similar analysis for the measles model generated by the \pkg{spatPomp} function \code{he10}.
 This is a susceptible-exposed-infected-recovered model for measles transmission, described by \citet{ionides22} and \citet{asfaw21arxiv}.
 For this model, exact likelihood evaluation is not available.
 However, for a relatively small number of units ($U=4$) the particle filter provide an adequate approximation.
@@ -815,6 +814,7 @@ m_prof_R0_searches <- foreach(s=1:nrow(param_R0_start_matrix))%dopar%{
   )
 }
 toc <- Sys.time()
+prof_R0_cores <- cores
 })
 m_prof_R0_time <- toc-tic
 @
@@ -834,18 +834,21 @@ m_pf_R0_eval <- foreach(mfit=m_prof_R0_searches,.combine=cbind) %dopar% {
   )
 }
 toc <- Sys.time()
+prof_R0_eval_cores <- cores
 })
 m_prof_R0_eval_time <- toc-tic
-prof_R0_cores <- cores
 @
 
 The $R0_\Sexpr{m_R0_prof_u}$ profile took \Sexpr{myround(as.double(m_prof_R0_time,units="mins"),2)} mins using \Sexpr{prof_R0_cores} computing cores.
-Likelihood evaluation took \Sexpr{myround(as.double(m_prof_R0_eval_time,units="mins"),2)}, shared between BPF and PF.
+Subsequent likelihood evaluation at the proposed profile points took \Sexpr{myround(as.double(m_prof_R0_eval_time,units="mins"),2)} mins, for BPF and PF combined.
+Accurate evaluation of the likelihood is important for inference, and optimization has been empirically found to require fewer particles than evaluation.
+This is a large computing time for one profile with only 4 units.
+Perhaps satisfactory results could have been generated more quickly, but generally one expects that simulation based inference for highly nonlinear and non-Gaussian spatiotemporal systems is going to require a considerable amount of computation. 
 
 <<m-prof-R0-plot, fig.height=8, fig.width=6, out.width="5.5in", fig.cap = "Top: profile for $R0_1$ using an IBPF search with likelihood computed using BPF, for $K=4$ blocks each having 1 unit. Bottom: The same IBPF search with likelihood computed using the particle filter. Vertical lines show the MLE and a 95\\% confidence interval, with a dotted line at the true parameter value.",eval=T,echo=F>>= 
 
 par(mfrow=c(2,1))
-par(mai=c(0.9,0.9,0.1,0.2))
+par(mai=c(0.9,0.9,0.15,0.2))
 
 ##### window to avoid problematic particle filter behavior at extremes
 prof_include <- (m_prof_R0_vals > 10) & (m_prof_R0_vals < 50)
@@ -950,11 +953,11 @@ Here, we investigate a slice for $u=4$.
 A likelihood profile cannot take a lower value than a likelihood slice, since the profile has an additional optimization.
 Therefore, a flat slice implies a flat profile; the converse is not necessarily true.
 Clear evidence of bias in a slice for a small number of units would anticipate difficulties when undertaking the more time-consuming task of obtaining a profile with many units and many parameters.
-Figure~\ref{fig:m_slice_g_plot} suggests that the BPF likelihood approximation leads to a lower-bias estimate of $g_u$ than for the coupling parameter $\rho$ in the Gaussian model (Figure~\ref{fig:ibpf-prof-rho-plot}).
 Figure~\ref{fig:m_slice_g_plot} is consistent with a small positive bias: BPF ignores part of the dependence in the filter distribution, so it may be expected that it compensates by a bias toward parameter values that increase the coupling.
 
-
-The $g_\Sexpr{m_g_prof_u}$ slice took \Sexpr{myround(as.double(m_slice_g_time,units="mins"),2)} mins using \Sexpr{m_slice_cores} computing cores.
+A slice is equivalent to a profile with only a single estimated parameter, so we can construct a Monte Carlo adjusted profile confidence interval under this assumption.
+The $g_\Sexpr{m_g_prof_u}$ slice took \Sexpr{myround(as.double(m_slice_g_time,units="mins"),2)} mins using \Sexpr{m_slice_cores} computing cores, which was considerably less computational effort than was used for the profile.
+Typically, sliced likelihood plots are a computationally convenient tool used for preliminary investigations, and a full profile is preferred for a final conclusion.
 
 \bibliography{bib-tutorial}
 

@@ -232,7 +232,7 @@ set.seed(20)
 %%%%%% iiiiiiii %%%%
 <<bm-model,echo=T,eval=T>>=
 library(spatPomp)
-i <- 2
+i <- 1
 b <- bm2(U=4,N=switch(i,10,200),unit_specific_names="rho")
 plot(b)
 @
@@ -265,6 +265,10 @@ bpf_logLik2 <- replicate(10,
 bm_dir <- paste0("bm_",i,"/")
 if(!dir.exists(bm_dir)) dir.create(bm_dir)
 stew(file=paste0(bm_dir,"logLik.rda"),seed=10,{
+
+  cat(capture.output(sessionInfo()),
+    file=paste0(bm_dir,"sessionInfo.txt"),sep="\n")
+
 <<bm_logLik_code>>
   bpf_logLik1 <- replicate(10,
     logLik(bpfilter(b,switch(i,10,1000),block_size=1))
@@ -381,7 +385,7 @@ params_start[paste0("rho",1:U)] <- rho_start
 ibpf_mle_searches <- foreach(reps=1:switch(i,3,10))%dopar%{
   ibpf(b,params=params_start,
     Nbpf=switch(i,2,50),Np=switch(i,10,1000),
-    rw.sd=rw.sd(rho1=0.02,rho2=0.02,rho3=0.02,rho4=0.02),
+    rw.sd=rw_sd(rho1=0.02,rho2=0.02,rho3=0.02,rho4=0.02),
     unitParNames="rho",
     sharedParNames=NULL,
     block_size=2,
@@ -424,28 +428,28 @@ The bottom panel of Figure~\label{fig:ibpf-prof-rho-plot} shows that we can also
 
 <<ibpf-prof,eval=T,echo=F>>=
 stew(file=paste0(bm_dir,"prof1.rda"),seed=722,{
-tic <- Sys.time()
-u <- 1
-rho_start <- seq(from=0.2,to=0.8,length=U)
-reps <- switch(i,3,10)
-param_start_matrix <- matrix(params_start,byrow=TRUE,
-  ncol=length(coef(b)),nrow=reps*length(prof_vals),
-  dimnames=list(NULL,names(coef(b))))
-param_start_matrix[,paste0("rho",u)] <- rep(prof_vals,each=reps)
-ibpf_prof_searches <- foreach(s=1:nrow(param_start_matrix))%dopar%{
-  rw.sd_call <- rep(list(0.02),times=U-1)
-  names(rw.sd_call) <- lapply((1:U)[-u],function(x)paste0("rho",x))
-  ibpf(b,
-    params=param_start_matrix[s,],
-    Nbpf=switch(i,2,50),Np=switch(i,20,1000),
-    rw.sd=do.call(rw.sd,rw.sd_call),
-    unitParNames="rho",
-    sharedParNames=NULL,
-    block_size=2,
-    cooling.fraction.50=0.5
-  )
-}
-toc <- Sys.time()
+  tic <- Sys.time()
+  u <- 1
+  rho_start <- seq(from=0.2,to=0.8,length=U)
+  reps <- switch(i,3,10)
+  param_start_matrix <- matrix(params_start,byrow=TRUE,
+    ncol=length(coef(b)),nrow=reps*length(prof_vals),
+    dimnames=list(NULL,names(coef(b))))
+  param_start_matrix[,paste0("rho",u)] <- rep(prof_vals,each=reps)
+  ibpf_prof_searches <- foreach(s=1:nrow(param_start_matrix))%dopar%{
+    rw_sd_call <- rep(list(0.02),times=U-1)
+    names(rw_sd_call) <- lapply((1:U)[-u],function(x)paste0("rho",x))
+    ibpf(b,
+      params=param_start_matrix[s,],
+      Nbpf=switch(i,2,50),Np=switch(i,20,1000),
+      rw.sd=do.call(rw_sd,rw_sd_call),
+      unitParNames="rho",
+      sharedParNames=NULL,
+      block_size=2,
+      cooling.fraction.50=0.5
+    )
+  }
+  toc <- Sys.time()
 })
 prof1time <- toc-tic
 @
@@ -723,6 +727,8 @@ m <- simulate(he10_model,seed=27)
 m_dir <- paste0("m_",i,"/")
 if(!dir.exists(m_dir)) dir.create(m_dir)
 stew(file=paste0(m_dir,"m-sim.rda"),{
+  cat(capture.output(sessionInfo()),
+    file=paste0(m_dir,"sessionInfo.txt"),sep="\n")
 <<model-he10-code>>
 })
 library(grid)
@@ -809,12 +815,12 @@ param_R0_start_matrix <- matrix(coef(m_R0),byrow=TRUE,
   dimnames=list(NULL,names(coef(m_R0))))
 param_R0_start_matrix[,paste0("R0",m_R0_prof_u)] <- rep(m_prof_R0_vals,each=reps)
 m_prof_R0_searches <- foreach(s=1:nrow(param_R0_start_matrix))%dopar%{
-  rw.sd_call <- rep(list(0.02),times=U-1)
-  names(rw.sd_call) <- lapply((1:U)[-m_R0_prof_u],function(x)paste0("R0",x))
+  rw_sd_call <- rep(list(0.02),times=U-1)
+  names(rw_sd_call) <- lapply((1:U)[-m_R0_prof_u],function(x)paste0("R0",x))
   ibpf(m_R0,
     params=param_R0_start_matrix[s,],
     Nbpf=switch(i,2,50),Np=switch(i,10,2000),
-    rw.sd=do.call(rw.sd,rw.sd_call),
+    rw.sd=do.call(rw_sd,rw_sd_call),
     unitParNames="R0",
     sharedParNames=NULL,
     block_size=1,

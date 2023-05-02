@@ -15,6 +15,7 @@
 #SBATCH --mem-per-cpu=5GB
 
 ## estimated time: 9hr based on previous run 
+## run time: 8:10 hr on 23-05-01
 ## wall time hours:minutes:seconds
 #SBATCH --time=15:00:00
 

@@ -602,12 +602,12 @@ param_sig_start_matrix <- matrix(params_sig_start,byrow=TRUE,
   dimnames=list(NULL,names(coef(b_sig))))
 param_sig_start_matrix[,paste0("sigma",u)] <- rep(prof_sig_vals,each=reps)
 ibpf_prof_sig_searches <- foreach(s=1:nrow(param_sig_start_matrix))%dopar%{
-  rw.sd_call <- rep(list(0.02),times=U-1)
-  names(rw.sd_call) <- lapply((1:U)[-u],function(x)paste0("sigma",x))
+  rw_sd_call <- rep(list(0.02),times=U-1)
+  names(rw_sd_call) <- lapply((1:U)[-u],function(x)paste0("sigma",x))
   ibpf(b_sig,
     params=param_sig_start_matrix[s,],
     Nbpf=switch(i,2,50),Np=switch(i,10,1000),
-    rw.sd=do.call(rw.sd,rw.sd_call),
+    rw.sd=do.call(rw_sd,rw_sd_call),
     unitParNames="sigma",
     sharedParNames=NULL,
     block_size=2,

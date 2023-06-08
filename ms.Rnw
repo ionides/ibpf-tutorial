@@ -980,6 +980,8 @@ A slice is equivalent to a profile with only a single estimated parameter, so we
 The $g_\Sexpr{m_g_prof_u}$ slice took \Sexpr{myround(as.double(m_slice_g_time,units="mins"),2)} mins using \Sexpr{m_slice_cores} computing cores, which was considerably less computational effort than was used for the profile.
 Typically, sliced likelihood plots are a computationally convenient tool used for preliminary investigations, and a full profile is preferred for a final conclusion.
 
+\clearpage
+
 \section{Diagnostics}
 
 <<diagnostics-setup,eval=T,echo=F>>=
@@ -989,12 +991,12 @@ if(!dir.exists(diagnostics_dir)) dir.create(diagnostics_dir)
 
 If likelihood maximization appears to be failing, or has unacceptably high Monte Carlo variability, one wishes to diagnose the cause, or causes.
 Even if inference appears to be operating satisfactorily, it is good practice to see whether there are some data points for which the model is inappropriate, or some parameters for which optimization is less stable.
-It may be interesting to know if less Monte Carlo effort would be sufficient, or if more would be useful.
+It may be interesting to know if less Monte Carlo effort would be sufficient, or if greater effort would be beneficial.
 For all these questions, a starting point is exploratory analysis of diagnostic data produced by \code{ibpf} and \code{bpfilter}.
 
 The success of an iterated filter for likelihood maximization depends on the success of a single pass of that filter for likelihood evaluation.
-A useful diagnostic quantity for the particle filter is the effective sample size (ESS) \citep{douce11,liu01}.
-In the notation of \citep{king16}, the filter observation weight for particle $j$ at time $n$ is $w(n,j)=f_{Y_n|X_n}(y_n^*|X^P_{n,j};\theta)$, the normal weight is $\tilde{w}(n,j)=w(n,j)\big/ \sum_{k=1}^Jw(n,k)$, and the effective sample size is
+A useful diagnostic quantity for the particle filter is the effective sample size (ESS) \citep{doucet11,liu01}.
+In the notation of \citet{king16}, the filter observation weight for particle $j$ at time $n$ is $w(n,j)=f_{Y_n|X_n}(y_n^*|X^P_{n,j};\theta)$, the normal weight is $\tilde{w}(n,j)=w(n,j)\big/ \sum_{k=1}^Jw(n,k)$, and the effective sample size is
 \begin{equation}
 \mathrm{ESS}_n = \left(\sum_{j=1}^J \tilde{w}(n,j)^2\right)^{-1}.
 \end{equation}
@@ -1004,12 +1006,14 @@ In the context of likelihood-based inference, it is convenient to think of $\mat
 \hat \ell_n = \log \left( \frac{1}{J} \sum_{j=1}^J w(n,j) \right).
 \end{equation}
 However, ubiquitous multi-core computation permits us to calculate this variance directly, by Monte Carlo replication.
-This bypasses consideration of when ESS is, and is not, a good estimator. 
-Also, the $R$ Monte Carlo replicates, $\hat\ell_n^{(r)}$, $r=1,\dots,R$, give rise to an improved estimate of the conditional log-likelihood,
+This bypasses consideration of whether or not ESS is a good estimator. 
+Also, the Monte Carlo replicates, denoted by $\hat\ell_n^{(r)}$, for $r=1,\dots,R$, give rise to an improved estimate of the conditional log-likelihood,
 \begin{equation}
+\label{eq:ell-bar}
 \bar \ell_n = \frac{1}{R} \sum_{r=1}^R \hat\ell_n^{(r)},
 \end{equation}
 together with an uncertainty estimate via the central limit theorem.
+One could also replace the arithmetic average  in (\ref{eq:ell-bar}) using \code{pomp::logmeanexp}.
 
 <<pfilter-test-london,eval=T,echo=F,fig.height=6, fig.width=6, out.width="4.5in", fig.cap = "Comparison of effective sample size and conditional log-likelihood variance for measles in London">>=
 london <- he10(U=1)
@@ -1028,9 +1032,9 @@ abline(a=0,b=1)
 
 Figure~\ref{fig:pfilter-test-london} shows both ESS and conditional log-likelihood variance (CLLV) for measles in London.
 We see that both measures agree on the most problematic observation.
-However, ESS is not a sensitive proxy for CLLV elsewhere in the distribution, and so we prefer to work with CLLV.
+However, ESS is not a sensitive proxy for CLLV elsewhere in the distribution.
 CLLV can be calculated for each observation time (cumulative over all units) for a block particle filter, but for diagnostic purposes we write the conditional log-likelihood as a sum of block conditional log-likelihood (BCLL) values.
-Using the notation of \citep{asfaw23}, the weights for block ${\mathcal B}_k\subset \seq{1}{U}$ are
+Using the notation of \citet{asfaw23arxiv}, the weights for block ${\mathcal B}_k\subset \seq{1}{U}$ are
 \begin{equation}
 w^j_{k,n} = \prod_{u \in {\mathcal B}_k}
             f_{Y_{n,n}|X_{u,n}}
@@ -1095,6 +1099,9 @@ plot(y=anomaly[2,],x=time(he10_model),ylab="anomaly",xlab="Date")
 mtext("D",side=3,line=-1,adj=-0.24,cex=1.5)
 @
 
+Log-likelihood anomalies can be plotted against any covariate of interest for exploratory data analysis.
+This is analogous to residual analysis for linear models.
+
 Trace plots to check on the convergence of \code{ibpf} are similar to those for other iterated filtering algorithms.
 In Figure~\ref{fig:traces}, we show this for the Gaussian correlated random walk example.
 In this case, we see replicable convergence among independent searches.
@@ -1107,6 +1114,7 @@ ggplot(ibpf_traces, aes(x=iteration,y=value,group=.L1,color=factor(.L1))) +
   guides(color="none") +
   facet_wrap(~variable,scales="free_y")
 @
+
 
 \bibliography{bib-tutorial}
 

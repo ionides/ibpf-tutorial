@@ -239,12 +239,13 @@ set.seed(20)
 %%%%%% iiiiiiii %%%%
 <<bm-model,echo=T,eval=T>>=
 library(spatPomp)
-i <- 2
+i <- 1
 b <- bm2(U=4,N=switch(i,10,200),unit_specific_names="rho")
 plot(b)
 @
 
 <<bm-followup,echo=F,eval=T>>=
+if(i==1) cores <- 2   # no need to use all available cores when i=1
 U <- length(unit_names(b))
 @
 
@@ -922,7 +923,7 @@ he10_model <- he10(U=4,dt=1/365,Tmax=switch(i,1955,1964),
   )
 )
 m_g <- simulate(he10_model,seed=27)
-if(dim(obs(m_g))!=dim(obs(m_R0)) || any(obs(m_g)-obs(m_R0) != 0)) stop("m_g and m_R0 should have the same synthetic data")
+if(any(dim(obs(m_g))!=dim(obs(m_R0))) || any(obs(m_g)-obs(m_R0) != 0)) stop("m_g and m_R0 should have the same synthetic data")
 })
 @
 

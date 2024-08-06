@@ -33,10 +33,8 @@
 \renewcommand\Xspace{{\R^{\Xdim}}}
 \newcommand\Ydim{{\mathrm{dim}}(\Yspace)}
 \renewcommand\Yspace{\R}
-%\newcommand\Thetadim{{\mathrm{dim}}(\Thetaspace)}
 \newcommand\Thetadim{D_\theta}
 \newcommand\thetadim{d_\theta}
-%\newcommand\vectheta{\vec{\theta}}
 \newcommand\vectheta{\theta}
 \newcommand\timeSet{{\mathbb T}}
 \newcommand\data[1]{#1^*}
@@ -45,15 +43,6 @@
 \newcommand\shared{\hspace{0.15mm}\mathrm{sh}}
 \newcommand\RP{\hspace{0.15mm}\mathrm{RP}}
 \newcommand\IVP{\hspace{0.15mm}\mathrm{IVP}}
-
-%% for bagged filters
-\newcommand\ABF{ABF}
-\newcommand\ABFIR{ABF-IR}
-\newcommand\UBF{UBF}
-\newcommand\rep{i}
-\newcommand\altRep{\tilde\rep}
-\newcommand\Rep{\mathcal{I}}
-
 
 %% for particle filters
 \newcommand\unit{u}
@@ -79,13 +68,9 @@
 \newcommand\myto{{\;:\;}}
 \newcommand\seq[2]{{#1}\!:\!{#2}}
 \newcommand\mydot{{\,\cdot\,}}
-\newcommand\cp[2]{N_{\mathrm{#1}\mathrm{#2}}}
 \newcommand\giventh{{\hspace{0.5mm};\hspace{0.5mm}}}
 \newcommand\normal{{\mathrm{Normal}}}
 \newcommand\argequals{{\,=\,}}
-\newcommand\lags{c}
-\newcommand\maxlag{\overline{c}}
-\newcommand\nlfList{C}
 \newcommand\bigO{\mathcal{O}}
 \newcommand\loglik{\lambda}
 \newcommand\loglikMC{\MC{\loglik}}
@@ -115,7 +100,7 @@ library("spatPomp")
 library("ggplot2")
 library("tidyverse")
 library("knitr")
-stopifnot(packageVersion("pomp")>="4.1")
+stopifnot(packageVersion("pomp")>="5.0")
 @
 
 <<set-opts,include=F,cache=F,purl=F>>=
@@ -137,10 +122,6 @@ options(
 <<knitr-opts,include=F,cache=F,purl=F>>=
 opts_chunk$set(
     progress=TRUE,prompt=TRUE,highlight=FALSE,
-#    tidy=TRUE,
-#    tidy.opts=list(
-#        keep.blank.line=FALSE
-#    ),
     comment="",
     warning=FALSE,
     message=FALSE,
@@ -193,7 +174,11 @@ mysignif <- function (x, digits = 1) {
 \title{Using an iterated block particle filter via \pkg{spatPomp}}
 \author{Ning Ning and Edward L. Ionides}
 \date{\small This version compiled on \today,  using \proglang{R} \Sexpr{paste0(R.version$major,".",R.version$minor)}, \pkg{spatPomp} \Sexpr{packageVersion('spatPomp')}, and \pkg{pomp} \Sexpr{packageVersion('pomp')}\\
-Source code at \url{https://github.com/ionides/ibpf-tutorial}}
+\vspace{3mm}
+Source code at \url{https://github.com/ionides/ibpf-tutorial}\\
+\vspace{3mm}
+R script at \url{https://github.com/ionides/ibpf-tutorial/blob/main/ms.R}}
+
 \begin{document}
 \maketitle
 
@@ -202,7 +187,6 @@ Source code at \url{https://github.com/ionides/ibpf-tutorial}}
 The IBPF algorithm studied by \citet{ning23-ibpf} and \citet{ionides22} has been contributed to the \proglang{R} package \pkg{spatPomp} \citep{asfaw21cran,asfaw23arxiv} as the function  \code{ibpf}.
 This document introduces \code{ibpf} and validates its correctness on a simple Gaussian example which is tractable using the Kalman filter.
 We also test \code{ibpf} on simulated data for a measles transmission model.
-In addition to the \pkg{spatPomp} code presented here, the full code to reproduce this document is available in the R Noweb (\code{.Rnw}) source file. 
 \end{abstract}
 
 \tableofcontents
@@ -246,7 +230,6 @@ plot(b)
 
 <<bm-followup,echo=F,eval=T>>=
 if(i==1) cores <- 2   # no need to use all available cores when i=1
-U <- length(unit_names(b))
 @
 
 Here, \code{i} is a computational intensity switch which adjusts the code for varying run-time.
@@ -255,11 +238,15 @@ For simplicity, we consider only one unit-specific parameter, $\rho_{\unit}$, wi
 The simulation for \code{b} has $\rho_u=\Sexpr{coef(b)["rho1"]}$ for all $\unit$, but the estimators do not know this.
 Before carrying out inference, we check likelihood evaluation.
 For this toy model, the \pkg{spatPomp} function \code{bm2\_kalman\_logLik} provides an exact log-likelihood via the Kalman filter.
-This study uses a sufficiently small number of units (\code{U=\Sexpr{U}}) that the particle filter is numerically tractable.
+This study uses a small number of units,
+<<define-U,echo=T>>=
+U <- 4
+@
+so that the particle filter is numerically tractable.
 We use the particle filter provided by the \pkg{pomp} package \citep{king16}, taking advantage of the class structure where \class{spatPomp} inherits from \class{pomp}.
 We can readily validate the agreement between \code{bm2\_kalman\_logLik} and \code{pfilter}, and identify the likelihood cost of the block filter approximation in this situation.
 
-<<bm_logLik_code,cache=F,echo=T,eval=F>>=
+<<bm_logLik_code,cache=F,echo=T,eval=F,purl=F>>=
 kf_logLik <- bm2_kalman_logLik(b)
 pf_logLik <- replicate(10,
   logLik(pfilter(b,switch(i,10,1000)))
@@ -320,8 +307,8 @@ PF provides an unbiased estimate of the likelihood, and due to the convexity of 
 Subsequently, we investigate inference for $\rho_{1:4}$ with $K=2$.
 
 \citet{ionides21} investigated a range of values for $U$ for this model in their Figure~1, and for an epidemiological model their Figure~3.
-The small scenario considered here, with $U=4$, is designed for the following purposes: (i) to validate whether or not \code{ibpf} is correctly coded by comparison with direct calculations using the Kalman filter; (ii) to check whether or not the block approximation has considerable adverse effects on inference in this case.
-The inherent scalability of BPF and IBPF, together with the spatial homogeneity of the model, suggests that results for $U=4$ should be representative for larger $U$.
+The small scenario considered here, with $U=\Sexpr{U}$, is designed for the following purposes: (i) to validate whether or not \code{ibpf} is correctly coded by comparison with direct calculations using the Kalman filter; (ii) to check whether or not the block approximation has considerable adverse effects on inference in this case.
+The inherent scalability of BPF and IBPF, together with the spatial homogeneity of the model, suggests that results for $U=\Sexpr{U}$ should be representative for larger $U$.
 
 For our test of IBPF, we start searches at $\rho_u=u/5$ to investigate the effect (if any) on starting value.
 
@@ -353,7 +340,7 @@ bm2_negProf <- function(rho_est,rho_fixed,u){
 
 prof_init <- rep(0.4,U)
 names(prof_init) <- paste0("rho",1:U)
-prof_vals <- seq(from=0,to=0.8,length=switch(i,5,20))
+prof_vals <- seq(from=0,to=0.8,length.out=switch(i,5,20))
 
 kf_prof <- function(rho_vals,u){
   foreach(rho_prof=rho_vals)%dopar% {
@@ -386,8 +373,8 @@ if(0){
 }
 @
 
-<<ibpf-mle-code,eval=F,echo=T>>=
-rho_start <- seq(from=0.2,to=0.8,length=U)
+<<ibpf-mle-code,eval=F,echo=T,purl=F>>=
+rho_start <- seq(from=0.2,to=0.8,length.out=U)
 params_start <- coef(b)
 params_start[paste0("rho",1:U)] <- rho_start
 ibpf_mle_searches <- foreach(reps=1:switch(i,3,10))%dopar%{
@@ -438,7 +425,7 @@ The bottom panel of Figure~\label{fig:ibpf-prof-rho-plot} shows that we can also
 stew(file=paste0(bm_dir,"prof1.rda"),seed=722,{
   tic <- Sys.time()
   u <- 1
-  rho_start <- seq(from=0.2,to=0.8,length=U)
+  rho_start <- seq(from=0.2,to=0.8,length.out=U)
   reps <- switch(i,3,10)
   param_start_matrix <- matrix(params_start,byrow=TRUE,
     ncol=length(coef(b)),nrow=reps*length(prof_vals),
@@ -563,7 +550,7 @@ bm2_sig_negProf <- function(sigma_est,sigma_fixed,u){
 
 prof_sig_init <- rep(1,U)
 names(prof_sig_init) <- paste0("sigma",1:U)
-prof_sig_vals <- seq(from=0.4,to=1.6,length=switch(i,5,20))
+prof_sig_vals <- seq(from=0.4,to=1.6,length.out=switch(i,5,20))
 
 kf_sig_prof <- function(sigma_vals,u){
   foreach(sigma_prof=sigma_vals)%dopar% {
@@ -601,7 +588,7 @@ if(0){
 stew(file=paste0(bm_dir,"prof_sig1.rda"),seed=722,{
 tic <- Sys.time()
 u <- 1
-sigma_start <- seq(from=0.4,to=1.6,length=U)
+sigma_start <- seq(from=0.4,to=1.6,length.out=U)
 params_sig_start <- coef(b_sig)
 params_sig_start[paste0("sigma",1:U)] <- sigma_start
 reps <- switch(i,2,10)
@@ -716,7 +703,7 @@ Here, our task is to focus on a smaller, simulated dataset, estimating fewer par
 We choose two large towns (London and Birmingham) and two small towns (Cardiff and Hastings) since we expect that population movement from large towns to small towns is essential to explain disase persistence in small towns.
 Large towns can maintain an ongoing epidemic, but, below a critical community size local extinction of the disease is expected during epidemic troughs.
 
-<<model-he10-code,eval=F,echo=T>>=
+<<model-he10-code,eval=F,echo=T,purl=F>>=
 he10_model <- he10(U=4,dt=1/365,Tmax=switch(i,1955,1964),
   expandedParNames=c("R0"),
   towns_selected=c(1,2,11,12),
@@ -813,7 +800,7 @@ However, BPF has favorable scaling properties, and if the weak coupling that mak
 
 <<m-prof-R0,eval=T,echo=F>>=
 stew(file=paste0(m_dir,"m_prof_R02.rda"),seed=722,{
-m_prof_R0_vals <- seq(from=25,to=35,length=switch(i,5,20))
+m_prof_R0_vals <- seq(from=25,to=35,length.out=switch(i,5,20))
 tic <- Sys.time()
 m_R0 <- m
 m_R0_prof_u <- 1
@@ -935,7 +922,7 @@ stew(file=paste0(m_dir,"m_slice_g.rda"),seed=722,{
 m_g_prof_u <- 4
 slice_reps <- switch(i,2,10)
 slice_points <- switch(i,5,20)
-slice_g_vals <- rep(seq(from=100,to=2500,length=slice_points),each=slice_reps)
+slice_g_vals <- rep(seq(from=100,to=2500,length.out=slice_points),each=slice_reps)
 params_g_slice<- matrix(coef(m_g),
   nrow=slice_reps*slice_points,
   ncol=length(coef(m_g)),
@@ -1052,7 +1039,7 @@ and the block approximation to the conditional likelihood of $y^*_1,\dots,y^*_{U
 \hat\ell_n = \sum_{k=1}^K \hat \ell_{k,n}.
 \end{equation}
 For our measles spatPomp exmple, we calculate the BCLL and its variance (BCLLV) as follows:
-<<bpfilter-diag-code,eval=F,echo=T>>=
+<<bpfilter-diag-code,eval=F,echo=T,purl=F>>=
 bpf_list <- foreach(rep=1:switch(i,6,40)) %dopar% {
   bpfilter(he10_model,Np=switch(i,10,2000),block_size=1)
 }

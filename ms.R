@@ -47,16 +47,13 @@ set.seed(20)
 ## ----bm-model,echo=T,eval=T---------------------------------------------------
 library(spatPomp)
 i <- 2
-b <- bm2(U=4,N=switch(i,10,200),unit_specific_names="rho")
+U <- 4
+b <- bm2(U=U,N=switch(i,10,200),unit_specific_names="rho")
 plot(b)
 
 
 ## ----bm-followup,echo=F,eval=T------------------------------------------------
 if(i==1) cores <- 2   # no need to use all available cores when i=1
-
-
-## ----define-U,echo=T----------------------------------------------------------
-U <- 4
 
 
 

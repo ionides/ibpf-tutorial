@@ -19,6 +19,9 @@
 #SBATCH --mem-per-cpu=5GB
 
 ## run time: 8:50 hr on 24-08-06 for commit be027722e2cf
+## run time: 11:23 hr on 24-08-07 for commit 31b7de7d213
+##    these commits are nomimally identical computing tasks
+##
 ## wall time hours:minutes:seconds
 #SBATCH --time=15:00:00
 

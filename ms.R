@@ -46,7 +46,7 @@ set.seed(20)
 
 ## ----bm-model,echo=T,eval=T---------------------------------------------------
 library(spatPomp)
-i <- 1
+i <- 2
 b <- bm2(U=4,N=switch(i,10,200),unit_specific_names="rho")
 plot(b)
 

@@ -224,7 +224,8 @@ set.seed(20)
 <<bm-model,echo=T,eval=T>>=
 library(spatPomp)
 i <- 2
-b <- bm2(U=4,N=switch(i,10,200),unit_specific_names="rho")
+U <- 4
+b <- bm2(U=U,N=switch(i,10,200),unit_specific_names="rho")
 plot(b)
 @
 
@@ -238,11 +239,7 @@ For simplicity, we consider only one unit-specific parameter, $\rho_{\unit}$, wi
 The simulation for \code{b} has $\rho_u=\Sexpr{coef(b)["rho1"]}$ for all $\unit$, but the estimators do not know this.
 Before carrying out inference, we check likelihood evaluation.
 For this toy model, the \pkg{spatPomp} function \code{bm2\_kalman\_logLik} provides an exact log-likelihood via the Kalman filter.
-This study uses a small number of units,
-<<define-U,echo=T>>=
-U <- 4
-@
-so that the particle filter is numerically tractable.
+This study uses a small number of units ($U=\Sexpr{U}$) so that the particle filter is numerically tractable.
 We use the particle filter provided by the \pkg{pomp} package \citep{king16}, taking advantage of the class structure where \class{spatPomp} inherits from \class{pomp}.
 We can readily validate the agreement between \code{bm2\_kalman\_logLik} and \code{pfilter}, and identify the likelihood cost of the block filter approximation in this situation.
 
